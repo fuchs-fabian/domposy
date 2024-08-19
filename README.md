@@ -38,6 +38,8 @@ Ideally, it has the following structure:
 
 Where the files are located is almost irrelevant. Ideally, there should be a folder containing all the services.
 
+**Examples**: [docker-compose-files](https://github.com/fuchs-fabian/docker-compose-files)
+
 ### Who is it for?
 
 This script is ideal for homelab enthusiasts, but also for people who work a lot with Docker Compose files.
