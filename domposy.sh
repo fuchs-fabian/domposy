@@ -64,6 +64,10 @@ log_cmd() {
     log "CMD    " "$1"
 }
 
+log_dry_run() {
+    log "DRY-RUN" "Dry run is enabled. Skipping '$1'"
+}
+
 log_info() {
     log "INFO   " "$1"
 }
@@ -148,16 +152,18 @@ SEARCH_DIR="${DEFAULT_SEARCH_DIR}"
 BACKUP_DIR="${DEFAULT_BACKUP_DIR}"
 EXCLUDE_DIR="${DEFAULT_EXCLUDE_DIR}"
 
-CLEAN_FLAG=false
+ENABLE_DRY_RUN=false
+ENABLE_CLEANUP=false
 
-while getopts ":hda:s:b:e:c" opt; do
+while getopts ":hdna:s:b:e:c" opt; do
     case ${opt} in
         h )
             echo "It is recommended to run the script with root rights to ensure that the backups work properly."
             echo
-            echo "Usage: (sudo) $SCRIPT_NAME [-h] [-d] [-a ACTION] [-s SEARCH_DIR] [-b BACKUP_DIR] [-e EXCLUDE_DIR] [-c]"
+            echo "Usage: (sudo) $SCRIPT_NAME [-h] [-d] [-n] [-a ACTION] [-s SEARCH_DIR] [-b BACKUP_DIR] [-e EXCLUDE_DIR] [-c]"
             echo "  -h                 Show help"
             echo "  -d                 Enables debug logging"
+            echo "  -n                 Executes a dry run, i.e. no changes are made to the file system with the exception of logging."
             echo "  -a ACTION          ACTION to be performed: 'update', 'backup' or 'all' (Default: '${DEFAULT_ACTION}')"
             echo "  -s SEARCH_DIR      Directory to search for ${DOCKER_COMPOSE_NAME} files (Default: '${DEFAULT_SEARCH_DIR}')"
             echo "  -b BACKUP_DIR      Destination directory for backups (Default: '${DEFAULT_BACKUP_DIR}')"
@@ -168,6 +174,10 @@ while getopts ":hda:s:b:e:c" opt; do
         d )
             log_debug "'-d' selected"
             ENABLE_DEBUG_LOGGING=true
+            ;;
+        n )
+            log_debug "'-n' selected"
+            ENABLE_DRY_RUN=true
             ;;
         a )
             log_debug "'-a' selected: '$OPTARG'"
@@ -187,7 +197,7 @@ while getopts ":hda:s:b:e:c" opt; do
             ;;
         c )
             log_debug "'-c' selected"
-            CLEAN_FLAG=true
+            ENABLE_CLEANUP=true
             ;;
         \? )
             log_error "Invalid option: -$OPTARG"
@@ -273,7 +283,12 @@ remove_docker_compose_images() {
 
     for image in $images; do
         log_info "Remove image ('${image}')..."
-        log_cmd "$(docker rmi "${image}")"
+
+        if [[ "$ENABLE_DRY_RUN" == false ]]; then
+            log_cmd "$(docker rmi "${image}")"
+        else
+            log_dry_run "docker rmi ${image}"
+        fi
     done
 }
 
@@ -295,10 +310,14 @@ check_file_creation() {
 
     debug_file_info "Check file creation" "$file"
 
-    if [[ -f "$file" ]]; then
-        log_info "File created: '$file'"
+    if [[ "$ENABLE_DRY_RUN" == false ]]; then
+        if [[ -f "$file" ]]; then
+            log_info "File created: '$file'"
+        else
+            log_error "File creation failed: '$file'"
+        fi
     else
-        log_error "File creation failed: '$file'"
+        log_dry_run "-f $file"
     fi
 }
 
@@ -319,8 +338,12 @@ backup_docker_compose_folder() {
     BACKUP_DIR="${BACKUP_DIR}$(date +"%Y-%m-%d")/"
 
     if [[ ! -d "$BACKUP_DIR" ]]; then
-        mkdir -p "$BACKUP_DIR"
-        log_info "Backup directory '$(realpath "$BACKUP_DIR")' was created"
+        if [[ "$ENABLE_DRY_RUN" == false ]]; then
+            mkdir -p "$BACKUP_DIR"
+            log_info "Backup directory '$(realpath "$BACKUP_DIR")' was created"
+        else
+            log_dry_run "mkdir -p $BACKUP_DIR"
+        fi
     fi
 
     local tar_file="$(date +"%Y-%m-%d_%H-%M-%S")_backup_${file_simple_dirname}.tar"
@@ -330,21 +353,33 @@ backup_docker_compose_folder() {
     local gz_file_with_backup_dir="${BACKUP_DIR}${gz_file}"
 
     log_info "TAR..."
-    tar -cpf "$tar_file_with_backup_dir" -C "$file_dir" . || { log_warning "Problem while creating the tar file '${tar_file_with_backup_dir}'. Skipping further backup actions and undoing file creations."; rm -f "$tar_file_with_backup_dir"; return; }
+    if [[ "$ENABLE_DRY_RUN" == false ]]; then
+        tar -cpf "$tar_file_with_backup_dir" -C "$file_dir" . || { log_warning "Problem while creating the tar file '${tar_file_with_backup_dir}'. Skipping further backup actions and undoing file creations."; rm -f "$tar_file_with_backup_dir"; return; }
+    else
+        log_dry_run "tar -cpf $tar_file_with_backup_dir -C $file_dir ."
+    fi
     check_file_creation $tar_file_with_backup_dir
 
     log_info "GZIP..."
-    gzip "${tar_file_with_backup_dir}" || { log_warning "Problem while compressing the tar file '${tar_file_with_backup_dir}'. Skipping further backup actions and undoing file creations."; rm -f "$tar_file_with_backup_dir" "$gz_file_with_backup_dir"; return; }
+    if [[ "$ENABLE_DRY_RUN" == false ]]; then
+        gzip "$tar_file_with_backup_dir" || { log_warning "Problem while compressing the tar file '${tar_file_with_backup_dir}'. Skipping further backup actions and undoing file creations."; rm -f "$tar_file_with_backup_dir" "$gz_file_with_backup_dir"; return; }
+    else
+        log_dry_run "gzip $tar_file_with_backup_dir"
+    fi
     check_file_creation $gz_file_with_backup_dir
 
     log_info "'${BACKUP_DIR}'..."
-    log_cmd "$(ls -larth "${BACKUP_DIR}")"
+    if [[ "$ENABLE_DRY_RUN" == false ]]; then
+        log_cmd "$(ls -larth "${BACKUP_DIR}")"
+    else
+        log_dry_run "ls -larth $BACKUP_DIR"
+    fi
 
-    log_info "-> Backup created. You can download '${gz_file_with_backup_dir}' e.g. with FileZilla."
-    log_info "-> To navigate to the backup folder: 'cd ${BACKUP_DIR}'"
-    log_info "-> To move the file: '(sudo) mv ${gz_file} /my/dir/for/${DOCKER_COMPOSE_NAME}-containers/${file_simple_dirname}/'"
-    log_info "-> To undo gzip: '(sudo) gunzip ${gz_file}'"
-    log_info "-> To unpack the tar file: '(sudo) tar -xpf ${tar_file}'"
+    log_info "[-->] Backup created. You can download '${gz_file_with_backup_dir}' e.g. with FileZilla."
+    log_info "[-->] To navigate to the backup folder: 'cd ${BACKUP_DIR}'"
+    log_info "[-->] To move the file: '(sudo) mv ${gz_file} /my/dir/for/${DOCKER_COMPOSE_NAME}-containers/${file_simple_dirname}/'"
+    log_info "[-->] To undo gzip: '(sudo) gunzip ${gz_file}'"
+    log_info "[-->] To unpack the tar file: '(sudo) tar -xpf ${tar_file}'"
 }
 
 # Performs a specific action for a Docker Compose configuration file.
@@ -361,7 +396,11 @@ perform_action_for_single_docker_compose_container() {
 
     log_info ">>>>> '${ACTION}' >>>>>"
     log_info "DOWN ('${file_simple_dirname}')..."
-    log_cmd "$($DOCKER_COMPOSE_CMD down)"
+    if [[ "$ENABLE_DRY_RUN" == false ]]; then
+        log_cmd "$($DOCKER_COMPOSE_CMD down)"
+    else
+        log_dry_run "$DOCKER_COMPOSE_CMD down"
+    fi
 
     case $ACTION in
         update )
@@ -377,7 +416,11 @@ perform_action_for_single_docker_compose_container() {
     esac
 
     log_info "UP ('${file_simple_dirname}')..."
-    log_cmd "$($DOCKER_COMPOSE_CMD up -d)"
+    if [[ "$ENABLE_DRY_RUN" == false ]]; then
+        log_cmd "$($DOCKER_COMPOSE_CMD up -d)"
+    else
+        log_dry_run "$DOCKER_COMPOSE_CMD up -d"
+    fi
     log_info "<<<<< '${ACTION}' <<<<<"
     log_info "<<<<<<<<<< '${file}' <<<<<<<<<<"
 }
@@ -389,7 +432,7 @@ perform_action_for_all_docker_compose_containers() {
         update|backup|all )
             log_debug "Action selected: '${ACTION}'"
 
-            docker_compose_files=$(find_docker_compose_files)
+            local docker_compose_files=$(find_docker_compose_files)
 
             if [ -z "$docker_compose_files" ]; then
                 log_error "No ${DOCKER_COMPOSE_NAME} files found in '${SEARCH_DIR}'. Cannot perform action."
@@ -425,13 +468,25 @@ cleanup() {
 
     log_info ">>>>>>>>>> CLEAN >>>>>>>>>>"
     log_info "Removing non-running containers..."
-    log_cmd "$(docker container prune -f)"
+    if [[ "$ENABLE_DRY_RUN" == false ]]; then
+        log_cmd "$(docker container prune -f)"
+    else
+        log_dry_run "docker container prune -f"
+    fi
 
     log_info "Removing unused docker images..."
-    log_cmd "$(docker image prune -f)"
+    if [[ "$ENABLE_DRY_RUN" == false ]]; then
+        log_cmd "$(docker image prune -f)"
+    else
+        log_dry_run "docker image prune -f"
+    fi
 
     log_info "Removing unused volumes..."
-    log_cmd "$(docker volume prune -f)"
+    if [[ "$ENABLE_DRY_RUN" == false ]]; then
+        log_cmd "$(docker volume prune -f)"
+    else
+        log_dry_run "docker volume prune -f"
+    fi
     log_info "<<<<<<<<<< CLEAN <<<<<<<<<<"
 
     log_info "<<<<<<<<<<<<<<< CLEANUP <<<<<<<<<<<<<<<"
@@ -444,6 +499,10 @@ cleanup() {
 
 log_info "'$SIMPLE_SCRIPT_NAME_WITHOUT_FILE_EXTENSION' has started."
 
+if $ENABLE_DRY_RUN; then
+    log_warning "Dry run is enabled!"
+fi
+
 validate_search_dir
 
 log_info "Current directory: '$(pwd)'"
@@ -454,7 +513,7 @@ show_docker_info
 
 perform_action_for_all_docker_compose_containers
 
-if $CLEAN_FLAG; then
+if $ENABLE_CLEANUP; then
     cleanup
 fi
 
