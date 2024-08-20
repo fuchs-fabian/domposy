@@ -163,7 +163,7 @@ while getopts ":hdna:s:b:e:c" opt; do
             echo "Usage: (sudo) $SCRIPT_NAME [-h] [-d] [-n] [-a ACTION] [-s SEARCH_DIR] [-b BACKUP_DIR] [-e EXCLUDE_DIR] [-c]"
             echo "  -h                 Show help"
             echo "  -d                 Enables debug logging"
-            echo "  -n                 Executes a dry run, i.e. no changes are made to the file system with the exception of logging."
+            echo "  -n                 Executes a dry run, i.e. no changes are made to the file system with the exception of logging"
             echo "  -a ACTION          ACTION to be performed: 'update', 'backup' or 'all' (Default: '${DEFAULT_ACTION}')"
             echo "  -s SEARCH_DIR      Directory to search for ${DOCKER_COMPOSE_NAME} files (Default: '${DEFAULT_SEARCH_DIR}')"
             echo "  -b BACKUP_DIR      Destination directory for backups (Default: '${DEFAULT_BACKUP_DIR}')"

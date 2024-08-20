@@ -72,7 +72,7 @@ Use the script:
 Usage: (sudo) ./domposy.sh [-h] [-d] [-n] [-a ACTION] [-s SEARCH_DIR] [-b BACKUP_DIR] [-e EXCLUDE_DIR] [-c]
   -h                 Show help
   -d                 Enables debug logging
-  -n                 Executes a dry run, i.e. no changes are made to the file system with the exception of logging.
+  -n                 Executes a dry run, i.e. no changes are made to the file system with the exception of logging
   -a ACTION          ACTION to be performed: 'update', 'backup' or 'all' (Default: 'all')
   -s SEARCH_DIR      Directory to search for docker-compose files (Default: '/home/')
   -b BACKUP_DIR      Destination directory for backups (Default: '/tmp/domposy_backups/')
