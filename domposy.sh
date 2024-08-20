@@ -1,9 +1,14 @@
 #!/bin/bash
 
+# DESCRIPTION:
+# This script simplifies your Docker Compose management.
+
+
 ENABLE_ADVANCED_LOGGING=false
 ENABLE_DEBUG_LOGGING=false
 
 LOG_FILE_PATH="/tmp"
+
 
 # # # # # # # # # # # #|# # # # # # # # # # # #
 #              SCRIPT INFORMATION             #
@@ -87,6 +92,7 @@ log_error() {
 #                 PREPARATIONS                #
 # # # # # # # # # # # #|# # # # # # # # # # # #
 
+# Checks whether the user has root rights and if not, whether he is at least added to the 'docker' group.
 check_permissions() {
     log_info "Current user: '$(whoami)'"
     if [[ $(id -u) -ne 0 ]]; then
@@ -98,6 +104,7 @@ check_permissions() {
     fi
 }
 
+# Returns the Docker Compose command. So whether 'docker-compose' or 'docker compose'.
 get_docker_compose_command() {
     if command -v docker-compose &> /dev/null; then
         echo "docker-compose"
@@ -108,6 +115,7 @@ get_docker_compose_command() {
     fi
 }
 
+# Validates whether the docker compose command can also be executed by determining the version.
 validate_docker_compose_command() {
     local version_output="$($DOCKER_COMPOSE_CMD version 2>&1)"
 
@@ -119,7 +127,7 @@ validate_docker_compose_command() {
 
 check_permissions
 
-DOCKER_COMPOSE_NAME="docker-compose"
+DOCKER_COMPOSE_NAME="docker-compose" # Name for Docker Compose files and path components
 
 DOCKER_COMPOSE_CMD=$(get_docker_compose_command)
 log_debug "'${DOCKER_COMPOSE_CMD}' is used"
@@ -196,6 +204,7 @@ shift $((OPTIND -1))
 #                  FUNCTIONS                  #
 # # # # # # # # # # # #|# # # # # # # # # # # #
 
+# Validation of the search dir and adjustments (absolute path) if necessary.
 validate_search_dir() {
     if [[ "${SEARCH_DIR: -1}" != "/" ]]; then
         tmp_search_dir="${SEARCH_DIR}"
@@ -215,6 +224,7 @@ validate_search_dir() {
     fi
 }
 
+# Returns the most important variables used by this script.
 get_vars() {
     log_info ">>>>>>>>>>>>>>> VARIABLES >>>>>>>>>>>>>>>"
     log_info "Script name: '${SCRIPT_NAME}'"
@@ -226,6 +236,7 @@ get_vars() {
     log_info "<<<<<<<<<<<<<<< VARIABLES <<<<<<<<<<<<<<<"
 }
 
+# Outputs information on the Docker status.
 show_docker_info() {
     log_info ">>>>>>>>>>>>>>> DOCKER INFO >>>>>>>>>>>>>>>"
     log_info "docker system df..."
@@ -242,9 +253,11 @@ show_docker_info() {
     log_info "<<<<<<<<<<<<<<< DOCKER INFO <<<<<<<<<<<<<<<"
 }
 
+# Searches for Docker Compose files in a specific directory and excludes a specified subdirectory.
 find_docker_compose_files() {
     local docker_compose_file_names=("${DOCKER_COMPOSE_NAME}.yml" "${DOCKER_COMPOSE_NAME}.yaml")
     local docker_compose_files=""
+
     for name in "${docker_compose_file_names[@]}"; do
         files=$(find "$SEARCH_DIR" -path "*/${EXCLUDE_DIR}/*" -prune -o -name "$name" -print 2>/dev/null)
         if [ -n "$files" ]; then
@@ -254,18 +267,47 @@ find_docker_compose_files() {
     echo "$docker_compose_files"
 }
 
+# Removes Docker images that are defined in a Docker Compose configuration file.
 remove_docker_compose_images() {
     local images=$($DOCKER_COMPOSE_CMD config | grep 'image:' | sed -E 's/.*image: *//')
+
     for image in $images; do
         log_info "Remove image ('${image}')..."
         log_cmd "$(docker rmi "${image}")"
     done
 }
 
+# Outputs debug information for a file.
+debug_file_info() {
+    local func_description="$1"
+    local file="$2"
+    local file_dir="$3"
+    local file_simple_dirname="$4"
+
+    [[ -n "$file" ]] && log_debug "(${func_description}) file: '${file}'"
+    [[ -n "$file_dir" ]] && log_debug "(${func_description}) file dir: '${file_dir}'"
+    [[ -n "$file_simple_dirname" ]] && log_debug "(${func_description}) file simple dirname: '${file_simple_dirname}'"
+}
+
+# Checks whether a file has been created, if not, the script is cancelled.
+check_file_creation() {
+    local file=$1
+
+    debug_file_info "Check file creation" "$file"
+
+    if [[ -f "$file" ]]; then
+        log_info "File created: '$file'"
+    else
+        log_error "File creation failed: '$file'"
+    fi
+}
+
+# Creates a backup of a Docker Compose folder by packing the files into a tar archive and then compressing them.
 backup_docker_compose_folder() {
     local file=$1
     local file_dir=$(dirname "$file")
     local file_simple_dirname=$(basename "$(dirname "$file")")
+    debug_file_info "Backup Docker Compose folder" "$file" "$file_dir" "$file_simple_dirname"
 
     local tmp_backup_dir="${BACKUP_DIR}"
 
@@ -289,41 +331,30 @@ backup_docker_compose_folder() {
 
     log_info "TAR..."
     tar -cpf "$tar_file_with_backup_dir" -C "$file_dir" . || { log_warning "Problem while creating the tar file '${tar_file_with_backup_dir}'. Skipping further backup actions and undoing file creations."; rm -f "$tar_file_with_backup_dir"; return; }
-
-    if [[ -f "$tar_file_with_backup_dir" ]]; then
-        log_info "File created: '${tar_file_with_backup_dir}'"
-    else
-        log_error "File creation failed: '${tar_file_with_backup_dir}'"
-    fi
+    check_file_creation $tar_file_with_backup_dir
 
     log_info "GZIP..."
     gzip "${tar_file_with_backup_dir}" || { log_warning "Problem while compressing the tar file '${tar_file_with_backup_dir}'. Skipping further backup actions and undoing file creations."; rm -f "$tar_file_with_backup_dir" "$gz_file_with_backup_dir"; return; }
-
-    if [[ -f "$gz_file_with_backup_dir" ]]; then
-        log_info "File created: '${gz_file_with_backup_dir}'"
-    else
-        log_error "File creation failed: '${gz_file_with_backup_dir}'"
-    fi
+    check_file_creation $gz_file_with_backup_dir
 
     log_info "'${BACKUP_DIR}'..."
     log_cmd "$(ls -larth "${BACKUP_DIR}")"
 
-    log_info "Backup created. You can download '${gz_file_with_backup_dir}' e.g. with FileZilla."
-    log_info "To navigate to the backup folder: 'cd ${BACKUP_DIR}'"
-    log_info "To move the file: 'sudo mv ${gz_file} /my/dir/for/${DOCKER_COMPOSE_NAME}-containers/${file_simple_dirname}/'"
-    log_info "To undo gzip: 'sudo gunzip ${gz_file}'"
-    log_info "To unpack the tar file: 'sudo tar -xpf ${tar_file}'"
+    log_info "-> Backup created. You can download '${gz_file_with_backup_dir}' e.g. with FileZilla."
+    log_info "-> To navigate to the backup folder: 'cd ${BACKUP_DIR}'"
+    log_info "-> To move the file: '(sudo) mv ${gz_file} /my/dir/for/${DOCKER_COMPOSE_NAME}-containers/${file_simple_dirname}/'"
+    log_info "-> To undo gzip: '(sudo) gunzip ${gz_file}'"
+    log_info "-> To unpack the tar file: '(sudo) tar -xpf ${tar_file}'"
 }
 
+# Performs a specific action for a Docker Compose configuration file.
 perform_action_for_single_docker_compose_container() {
     local file=$1
-    log_info ">>>>>>>>>> '${file}' >>>>>>>>>>"
-
     local file_dir=$(dirname "$file")
-    log_debug "file_dir: '${file_dir}'"
-
     local file_simple_dirname=$(basename "$(dirname "$file")")
-    log_debug "file_simple_dirname: '${file_simple_dirname}'"
+    debug_file_info "Perform action for single Docker Compose container" "$file" "$file_dir" "$file_simple_dirname"
+
+    log_info ">>>>>>>>>> '${file}' >>>>>>>>>>"
 
     cd "${file_dir}"
     log_info "Changed directory to '$(pwd)'"
@@ -333,13 +364,13 @@ perform_action_for_single_docker_compose_container() {
     log_cmd "$($DOCKER_COMPOSE_CMD down)"
 
     case $ACTION in
-        update)
+        update )
             remove_docker_compose_images
             ;;
-        backup)
+        backup )
             backup_docker_compose_folder "$file"
             ;;
-        all)
+        all )
             backup_docker_compose_folder "$file"
             remove_docker_compose_images
             ;;
@@ -351,10 +382,11 @@ perform_action_for_single_docker_compose_container() {
     log_info "<<<<<<<<<< '${file}' <<<<<<<<<<"
 }
 
+# Performs a specified action for all Docker Compose files in a search directory.
 perform_action_for_all_docker_compose_containers() {
     log_info ">>>>>>>>>>>>>>> DOCKER COMPOSE >>>>>>>>>>>>>>>"
     case $ACTION in
-        update|backup|all)
+        update|backup|all )
             log_debug "Action selected: '${ACTION}'"
 
             docker_compose_files=$(find_docker_compose_files)
@@ -369,13 +401,14 @@ perform_action_for_all_docker_compose_containers() {
                 perform_action_for_single_docker_compose_container "$file"
             done <<< "$docker_compose_files"
             ;;
-        *)
+        * )
             log_error "Invalid action: '${ACTION}'"
             ;;
     esac
     log_info "<<<<<<<<<<<<<<< DOCKER COMPOSE <<<<<<<<<<<<<<<"
 }
 
+# Performs a cleanup of the Docker resources
 cleanup() {
     log_info ">>>>>>>>>>>>>>> CLEANUP >>>>>>>>>>>>>>>"
 
