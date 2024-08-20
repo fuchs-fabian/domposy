@@ -38,7 +38,11 @@ Ideally, it has the following structure:
 
 Where the files are located is almost irrelevant. Ideally, there should be a folder containing all the services.
 
-**Examples**: [docker-compose-files](https://github.com/fuchs-fabian/docker-compose-files)
+**Examples for Docker Compose files**:
+
+<a href="https://github.com/fuchs-fabian/docker-compose-files">
+  <img src="https://github-readme-stats.vercel.app/api/pin/?username=fuchs-fabian&repo=docker-compose-files&theme=holi&hide_border=true&border_radius=10" alt="Repository docker-compose-files"/>
+</a>
 
 ### Who is it for?
 
