@@ -245,6 +245,7 @@ show_docker_info() {
 find_docker_compose_files() {
     local docker_compose_file_names=("${DOCKER_COMPOSE_NAME}.yml" "${DOCKER_COMPOSE_NAME}.yaml")
     local docker_compose_files=""
+
     for name in "${docker_compose_file_names[@]}"; do
         files=$(find "$SEARCH_DIR" -path "*/${EXCLUDE_DIR}/*" -prune -o -name "$name" -print 2>/dev/null)
         if [ -n "$files" ]; then
@@ -256,16 +257,41 @@ find_docker_compose_files() {
 
 remove_docker_compose_images() {
     local images=$($DOCKER_COMPOSE_CMD config | grep 'image:' | sed -E 's/.*image: *//')
+
     for image in $images; do
         log_info "Remove image ('${image}')..."
         log_cmd "$(docker rmi "${image}")"
     done
 }
 
+debug_file_info() {
+    local func_description="$1"
+    local file="$2"
+    local file_dir="$3"
+    local file_simple_dirname="$4"
+
+    [[ -n "$file" ]] && log_debug "(${func_description}) file: '${file}'"
+    [[ -n "$file_dir" ]] && log_debug "(${func_description}) file dir: '${file_dir}'"
+    [[ -n "$file_simple_dirname" ]] && log_debug "(${func_description}) file simple dirname: '${file_simple_dirname}'"
+}
+
+check_file_creation() {
+    local file=$1
+
+    debug_file_info "Check file creation" "$file"
+
+    if [[ -f "$file" ]]; then
+        log_info "File created: '$file'"
+    else
+        log_error "File creation failed: '$file'"
+    fi
+}
+
 backup_docker_compose_folder() {
     local file=$1
     local file_dir=$(dirname "$file")
     local file_simple_dirname=$(basename "$(dirname "$file")")
+    debug_file_info "Backup Docker Compose folder" "$file" "$file_dir" "$file_simple_dirname"
 
     local tmp_backup_dir="${BACKUP_DIR}"
 
@@ -289,41 +315,29 @@ backup_docker_compose_folder() {
 
     log_info "TAR..."
     tar -cpf "$tar_file_with_backup_dir" -C "$file_dir" . || { log_warning "Problem while creating the tar file '${tar_file_with_backup_dir}'. Skipping further backup actions and undoing file creations."; rm -f "$tar_file_with_backup_dir"; return; }
-
-    if [[ -f "$tar_file_with_backup_dir" ]]; then
-        log_info "File created: '${tar_file_with_backup_dir}'"
-    else
-        log_error "File creation failed: '${tar_file_with_backup_dir}'"
-    fi
+    check_file_creation $tar_file_with_backup_dir
 
     log_info "GZIP..."
     gzip "${tar_file_with_backup_dir}" || { log_warning "Problem while compressing the tar file '${tar_file_with_backup_dir}'. Skipping further backup actions and undoing file creations."; rm -f "$tar_file_with_backup_dir" "$gz_file_with_backup_dir"; return; }
-
-    if [[ -f "$gz_file_with_backup_dir" ]]; then
-        log_info "File created: '${gz_file_with_backup_dir}'"
-    else
-        log_error "File creation failed: '${gz_file_with_backup_dir}'"
-    fi
+    check_file_creation $gz_file_with_backup_dir
 
     log_info "'${BACKUP_DIR}'..."
     log_cmd "$(ls -larth "${BACKUP_DIR}")"
 
-    log_info "Backup created. You can download '${gz_file_with_backup_dir}' e.g. with FileZilla."
-    log_info "To navigate to the backup folder: 'cd ${BACKUP_DIR}'"
-    log_info "To move the file: 'sudo mv ${gz_file} /my/dir/for/${DOCKER_COMPOSE_NAME}-containers/${file_simple_dirname}/'"
-    log_info "To undo gzip: 'sudo gunzip ${gz_file}'"
-    log_info "To unpack the tar file: 'sudo tar -xpf ${tar_file}'"
+    log_info "-> Backup created. You can download '${gz_file_with_backup_dir}' e.g. with FileZilla."
+    log_info "-> To navigate to the backup folder: 'cd ${BACKUP_DIR}'"
+    log_info "-> To move the file: '(sudo) mv ${gz_file} /my/dir/for/${DOCKER_COMPOSE_NAME}-containers/${file_simple_dirname}/'"
+    log_info "-> To undo gzip: '(sudo) gunzip ${gz_file}'"
+    log_info "-> To unpack the tar file: '(sudo) tar -xpf ${tar_file}'"
 }
 
 perform_action_for_single_docker_compose_container() {
     local file=$1
-    log_info ">>>>>>>>>> '${file}' >>>>>>>>>>"
-
     local file_dir=$(dirname "$file")
-    log_debug "file_dir: '${file_dir}'"
-
     local file_simple_dirname=$(basename "$(dirname "$file")")
-    log_debug "file_simple_dirname: '${file_simple_dirname}'"
+    debug_file_info "Perform action for single Docker Compose container" "$file" "$file_dir" "$file_simple_dirname"
+
+    log_info ">>>>>>>>>> '${file}' >>>>>>>>>>"
 
     cd "${file_dir}"
     log_info "Changed directory to '$(pwd)'"
@@ -333,13 +347,13 @@ perform_action_for_single_docker_compose_container() {
     log_cmd "$($DOCKER_COMPOSE_CMD down)"
 
     case $ACTION in
-        update)
+        update )
             remove_docker_compose_images
             ;;
-        backup)
+        backup )
             backup_docker_compose_folder "$file"
             ;;
-        all)
+        all )
             backup_docker_compose_folder "$file"
             remove_docker_compose_images
             ;;
@@ -354,7 +368,7 @@ perform_action_for_single_docker_compose_container() {
 perform_action_for_all_docker_compose_containers() {
     log_info ">>>>>>>>>>>>>>> DOCKER COMPOSE >>>>>>>>>>>>>>>"
     case $ACTION in
-        update|backup|all)
+        update|backup|all )
             log_debug "Action selected: '${ACTION}'"
 
             docker_compose_files=$(find_docker_compose_files)
@@ -369,7 +383,7 @@ perform_action_for_all_docker_compose_containers() {
                 perform_action_for_single_docker_compose_container "$file"
             done <<< "$docker_compose_files"
             ;;
-        *)
+        * )
             log_error "Invalid action: '${ACTION}'"
             ;;
     esac
