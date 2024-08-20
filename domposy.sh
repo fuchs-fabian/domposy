@@ -1,9 +1,14 @@
 #!/bin/bash
 
+# DESCRIPTION:
+# This script simplifies your Docker Compose management.
+
+
 ENABLE_ADVANCED_LOGGING=false
 ENABLE_DEBUG_LOGGING=false
 
 LOG_FILE_PATH="/tmp"
+
 
 # # # # # # # # # # # #|# # # # # # # # # # # #
 #              SCRIPT INFORMATION             #
@@ -87,6 +92,7 @@ log_error() {
 #                 PREPARATIONS                #
 # # # # # # # # # # # #|# # # # # # # # # # # #
 
+# Checks whether the user has root rights and if not, whether he is at least added to the 'docker' group.
 check_permissions() {
     log_info "Current user: '$(whoami)'"
     if [[ $(id -u) -ne 0 ]]; then
@@ -98,6 +104,7 @@ check_permissions() {
     fi
 }
 
+# Returns the Docker Compose command. So whether 'docker-compose' or 'docker compose'.
 get_docker_compose_command() {
     if command -v docker-compose &> /dev/null; then
         echo "docker-compose"
@@ -108,6 +115,7 @@ get_docker_compose_command() {
     fi
 }
 
+# Validates whether the docker compose command can also be executed by determining the version.
 validate_docker_compose_command() {
     local version_output="$($DOCKER_COMPOSE_CMD version 2>&1)"
 
@@ -119,7 +127,7 @@ validate_docker_compose_command() {
 
 check_permissions
 
-DOCKER_COMPOSE_NAME="docker-compose"
+DOCKER_COMPOSE_NAME="docker-compose" # Name for Docker Compose files and path components
 
 DOCKER_COMPOSE_CMD=$(get_docker_compose_command)
 log_debug "'${DOCKER_COMPOSE_CMD}' is used"
@@ -196,6 +204,7 @@ shift $((OPTIND -1))
 #                  FUNCTIONS                  #
 # # # # # # # # # # # #|# # # # # # # # # # # #
 
+# Validation of the search dir and adjustments (absolute path) if necessary.
 validate_search_dir() {
     if [[ "${SEARCH_DIR: -1}" != "/" ]]; then
         tmp_search_dir="${SEARCH_DIR}"
@@ -215,6 +224,7 @@ validate_search_dir() {
     fi
 }
 
+# Returns the most important variables used by this script.
 get_vars() {
     log_info ">>>>>>>>>>>>>>> VARIABLES >>>>>>>>>>>>>>>"
     log_info "Script name: '${SCRIPT_NAME}'"
@@ -226,6 +236,7 @@ get_vars() {
     log_info "<<<<<<<<<<<<<<< VARIABLES <<<<<<<<<<<<<<<"
 }
 
+# Outputs information on the Docker status.
 show_docker_info() {
     log_info ">>>>>>>>>>>>>>> DOCKER INFO >>>>>>>>>>>>>>>"
     log_info "docker system df..."
@@ -242,6 +253,7 @@ show_docker_info() {
     log_info "<<<<<<<<<<<<<<< DOCKER INFO <<<<<<<<<<<<<<<"
 }
 
+# Searches for Docker Compose files in a specific directory and excludes a specified subdirectory.
 find_docker_compose_files() {
     local docker_compose_file_names=("${DOCKER_COMPOSE_NAME}.yml" "${DOCKER_COMPOSE_NAME}.yaml")
     local docker_compose_files=""
@@ -255,6 +267,7 @@ find_docker_compose_files() {
     echo "$docker_compose_files"
 }
 
+# Removes Docker images that are defined in a Docker Compose configuration file.
 remove_docker_compose_images() {
     local images=$($DOCKER_COMPOSE_CMD config | grep 'image:' | sed -E 's/.*image: *//')
 
@@ -264,6 +277,7 @@ remove_docker_compose_images() {
     done
 }
 
+# Outputs debug information for a file.
 debug_file_info() {
     local func_description="$1"
     local file="$2"
@@ -275,6 +289,7 @@ debug_file_info() {
     [[ -n "$file_simple_dirname" ]] && log_debug "(${func_description}) file simple dirname: '${file_simple_dirname}'"
 }
 
+# Checks whether a file has been created, if not, the script is cancelled.
 check_file_creation() {
     local file=$1
 
@@ -287,6 +302,7 @@ check_file_creation() {
     fi
 }
 
+# Creates a backup of a Docker Compose folder by packing the files into a tar archive and then compressing them.
 backup_docker_compose_folder() {
     local file=$1
     local file_dir=$(dirname "$file")
@@ -331,6 +347,7 @@ backup_docker_compose_folder() {
     log_info "-> To unpack the tar file: '(sudo) tar -xpf ${tar_file}'"
 }
 
+# Performs a specific action for a Docker Compose configuration file.
 perform_action_for_single_docker_compose_container() {
     local file=$1
     local file_dir=$(dirname "$file")
@@ -365,6 +382,7 @@ perform_action_for_single_docker_compose_container() {
     log_info "<<<<<<<<<< '${file}' <<<<<<<<<<"
 }
 
+# Performs a specified action for all Docker Compose files in a search directory.
 perform_action_for_all_docker_compose_containers() {
     log_info ">>>>>>>>>>>>>>> DOCKER COMPOSE >>>>>>>>>>>>>>>"
     case $ACTION in
@@ -390,6 +408,7 @@ perform_action_for_all_docker_compose_containers() {
     log_info "<<<<<<<<<<<<<<< DOCKER COMPOSE <<<<<<<<<<<<<<<"
 }
 
+# Performs a cleanup of the Docker resources
 cleanup() {
     log_info ">>>>>>>>>>>>>>> CLEANUP >>>>>>>>>>>>>>>"
 
