@@ -136,7 +136,7 @@ validate_docker_compose_command
 #                   GETOPTS                   #
 # # # # # # # # # # # #|# # # # # # # # # # # #
 
-DEFAULT_ACTION="all"
+DEFAULT_ACTION="backup"
 DEFAULT_SEARCH_DIR="/home/"
 DEFAULT_BACKUP_DIR="/tmp/${SIMPLE_SCRIPT_NAME_WITHOUT_FILE_EXTENSION}_backups/"
 DEFAULT_EXCLUDE_DIR="tmp"
@@ -158,7 +158,7 @@ while getopts ":hdna:s:b:e:c" opt; do
         echo "  -h                 Show help"
         echo "  -d                 Enables debug logging"
         echo "  -n                 Executes a dry run, i.e. no changes are made to the file system with the exception of logging"
-        echo "  -a ACTION          ACTION to be performed: 'update', 'backup' or 'all' (Default: '${DEFAULT_ACTION}')"
+        echo "  -a ACTION          ACTION to be performed: 'backup' (Default: '${DEFAULT_ACTION}')"
         echo "  -s SEARCH_DIR      Directory to search for ${DOCKER_COMPOSE_NAME} files (Default: '${DEFAULT_SEARCH_DIR}')"
         echo "  -b BACKUP_DIR      Destination directory for backups (Default: '${DEFAULT_BACKUP_DIR}')"
         echo "  -e EXCLUDE_DIR     Directory to exclude from search (Default: '${DEFAULT_EXCLUDE_DIR}')"
@@ -268,21 +268,6 @@ find_docker_compose_files() {
         fi
     done
     echo "$docker_compose_files"
-}
-
-# Removes Docker images that are defined in a Docker Compose configuration file.
-remove_docker_compose_images() {
-    local images=$($DOCKER_COMPOSE_CMD config | grep 'image:' | sed -E 's/.*image: *//')
-
-    for image in $images; do
-        log_info "Remove image ('${image}')..."
-
-        if [[ "$ENABLE_DRY_RUN" == false ]]; then
-            log_cmd "$(docker rmi "${image}")"
-        else
-            log_dry_run "docker rmi ${image}"
-        fi
-    done
 }
 
 # Outputs debug information for a file.
@@ -406,15 +391,8 @@ perform_action_for_single_docker_compose_container() {
     fi
 
     case $ACTION in
-    update)
-        remove_docker_compose_images
-        ;;
     backup)
         backup_docker_compose_folder "$file"
-        ;;
-    all)
-        backup_docker_compose_folder "$file"
-        remove_docker_compose_images
         ;;
     esac
 
@@ -432,7 +410,7 @@ perform_action_for_single_docker_compose_container() {
 perform_action_for_all_docker_compose_containers() {
     log_info ">>>>>>>>>>>>>>> DOCKER COMPOSE >>>>>>>>>>>>>>>"
     case $ACTION in
-    update | backup | all)
+    backup)
         log_debug "Action selected: '${ACTION}'"
 
         local docker_compose_files=$(find_docker_compose_files)
