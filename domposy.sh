@@ -3,12 +3,10 @@
 # DESCRIPTION:
 # This script simplifies your Docker Compose management.
 
-
 ENABLE_ADVANCED_LOGGING=false
 ENABLE_DEBUG_LOGGING=false
 
 LOG_FILE_PATH="/tmp"
-
 
 # # # # # # # # # # # #|# # # # # # # # # # # #
 #              SCRIPT INFORMATION             #
@@ -19,7 +17,6 @@ SCRIPT_NAME="$0"
 SIMPLE_SCRIPT_NAME=$(basename "$SCRIPT_NAME")
 SIMPLE_SCRIPT_NAME_WITHOUT_FILE_EXTENSION="${SIMPLE_SCRIPT_NAME%.*}"
 
-
 # # # # # # # # # # # #|# # # # # # # # # # # #
 #              LOGGING DIRECTORIES            #
 # # # # # # # # # # # #|# # # # # # # # # # # #
@@ -27,7 +24,6 @@ SIMPLE_SCRIPT_NAME_WITHOUT_FILE_EXTENSION="${SIMPLE_SCRIPT_NAME%.*}"
 LOG_DIR="${LOG_FILE_PATH}/${SIMPLE_SCRIPT_NAME_WITHOUT_FILE_EXTENSION}_logs/"
 LOG_FILE="$(date +"%Y-%m-%d_%H-%M-%S")_log_${SIMPLE_SCRIPT_NAME_WITHOUT_FILE_EXTENSION}.txt"
 LOG_FILE_WITH_LOG_DIR="${LOG_DIR}${LOG_FILE}"
-
 
 # # # # # # # # # # # #|# # # # # # # # # # # #
 #             LOGGING FUNCTIONALITY           #
@@ -48,9 +44,9 @@ log() {
 
     if [[ -n "$message" ]]; then
         while IFS= read -r line; do
-            echo "$(date +"%d.%m.%Y %H:%M:%S") - $level - $line" >> "$LOG_FILE_WITH_LOG_DIR"
+            echo "$(date +"%d.%m.%Y %H:%M:%S") - $level - $line" >>"$LOG_FILE_WITH_LOG_DIR"
             echo "  $level$script_info - $line"
-        done <<< "$message"
+        done <<<"$message"
     fi
 }
 
@@ -91,7 +87,6 @@ log_error() {
     exit 1
 }
 
-
 # # # # # # # # # # # #|# # # # # # # # # # # #
 #                 PREPARATIONS                #
 # # # # # # # # # # # #|# # # # # # # # # # # #
@@ -110,9 +105,9 @@ check_permissions() {
 
 # Returns the Docker Compose command. So whether 'docker-compose' or 'docker compose'.
 get_docker_compose_command() {
-    if command -v docker-compose &> /dev/null; then
+    if command -v docker-compose &>/dev/null; then
         echo "docker-compose"
-    elif docker compose version &> /dev/null; then
+    elif docker compose version &>/dev/null; then
         echo "docker compose"
     else
         log_error "Neither 'docker-compose' nor 'docker compose' command found. Is it installed?"
@@ -137,7 +132,6 @@ DOCKER_COMPOSE_CMD=$(get_docker_compose_command)
 log_debug "'${DOCKER_COMPOSE_CMD}' is used"
 validate_docker_compose_command
 
-
 # # # # # # # # # # # #|# # # # # # # # # # # #
 #                   GETOPTS                   #
 # # # # # # # # # # # #|# # # # # # # # # # # #
@@ -157,58 +151,57 @@ ENABLE_CLEANUP=false
 
 while getopts ":hdna:s:b:e:c" opt; do
     case ${opt} in
-        h )
-            echo "It is recommended to run the script with root rights to ensure that the backups work properly."
-            echo
-            echo "Usage: (sudo) $SCRIPT_NAME [-h] [-d] [-n] [-a ACTION] [-s SEARCH_DIR] [-b BACKUP_DIR] [-e EXCLUDE_DIR] [-c]"
-            echo "  -h                 Show help"
-            echo "  -d                 Enables debug logging"
-            echo "  -n                 Executes a dry run, i.e. no changes are made to the file system with the exception of logging"
-            echo "  -a ACTION          ACTION to be performed: 'update', 'backup' or 'all' (Default: '${DEFAULT_ACTION}')"
-            echo "  -s SEARCH_DIR      Directory to search for ${DOCKER_COMPOSE_NAME} files (Default: '${DEFAULT_SEARCH_DIR}')"
-            echo "  -b BACKUP_DIR      Destination directory for backups (Default: '${DEFAULT_BACKUP_DIR}')"
-            echo "  -e EXCLUDE_DIR     Directory to exclude from search (Default: '${DEFAULT_EXCLUDE_DIR}')"
-            echo "  -c                 Additional docker cleanup"
-            exit 0
-            ;;
-        d )
-            log_debug "'-d' selected"
-            ENABLE_DEBUG_LOGGING=true
-            ;;
-        n )
-            log_debug "'-n' selected"
-            ENABLE_DRY_RUN=true
-            ;;
-        a )
-            log_debug "'-a' selected: '$OPTARG'"
-            ACTION="${OPTARG}"
-            ;;
-        s )
-            log_debug "'-s' selected: '$OPTARG'"
-            SEARCH_DIR="${OPTARG}"
-            ;;
-        b )
-            log_debug "'-b' selected: '$OPTARG'"
-            BACKUP_DIR="${OPTARG}"
-            ;;
-        e )
-            log_debug "'-e' selected: '$OPTARG'"
-            EXCLUDE_DIR="${OPTARG}"
-            ;;
-        c )
-            log_debug "'-c' selected"
-            ENABLE_CLEANUP=true
-            ;;
-        \? )
-            log_error "Invalid option: -$OPTARG"
-            ;;
-        : )
-            log_error "Option -$OPTARG requires an argument!"
-            ;;
+    h)
+        echo "It is recommended to run the script with root rights to ensure that the backups work properly."
+        echo
+        echo "Usage: (sudo) $SCRIPT_NAME [-h] [-d] [-n] [-a ACTION] [-s SEARCH_DIR] [-b BACKUP_DIR] [-e EXCLUDE_DIR] [-c]"
+        echo "  -h                 Show help"
+        echo "  -d                 Enables debug logging"
+        echo "  -n                 Executes a dry run, i.e. no changes are made to the file system with the exception of logging"
+        echo "  -a ACTION          ACTION to be performed: 'update', 'backup' or 'all' (Default: '${DEFAULT_ACTION}')"
+        echo "  -s SEARCH_DIR      Directory to search for ${DOCKER_COMPOSE_NAME} files (Default: '${DEFAULT_SEARCH_DIR}')"
+        echo "  -b BACKUP_DIR      Destination directory for backups (Default: '${DEFAULT_BACKUP_DIR}')"
+        echo "  -e EXCLUDE_DIR     Directory to exclude from search (Default: '${DEFAULT_EXCLUDE_DIR}')"
+        echo "  -c                 Additional docker cleanup"
+        exit 0
+        ;;
+    d)
+        log_debug "'-d' selected"
+        ENABLE_DEBUG_LOGGING=true
+        ;;
+    n)
+        log_debug "'-n' selected"
+        ENABLE_DRY_RUN=true
+        ;;
+    a)
+        log_debug "'-a' selected: '$OPTARG'"
+        ACTION="${OPTARG}"
+        ;;
+    s)
+        log_debug "'-s' selected: '$OPTARG'"
+        SEARCH_DIR="${OPTARG}"
+        ;;
+    b)
+        log_debug "'-b' selected: '$OPTARG'"
+        BACKUP_DIR="${OPTARG}"
+        ;;
+    e)
+        log_debug "'-e' selected: '$OPTARG'"
+        EXCLUDE_DIR="${OPTARG}"
+        ;;
+    c)
+        log_debug "'-c' selected"
+        ENABLE_CLEANUP=true
+        ;;
+    \?)
+        log_error "Invalid option: -$OPTARG"
+        ;;
+    :)
+        log_error "Option -$OPTARG requires an argument!"
+        ;;
     esac
 done
-shift $((OPTIND -1))
-
+shift $((OPTIND - 1))
 
 # # # # # # # # # # # #|# # # # # # # # # # # #
 #                  FUNCTIONS                  #
@@ -354,7 +347,12 @@ backup_docker_compose_folder() {
 
     log_info "TAR..."
     if [[ "$ENABLE_DRY_RUN" == false ]]; then
-        tar -cpf "$tar_file_with_backup_dir" -C "$file_dir" . || { log_warning "Problem while creating the tar file '${tar_file_with_backup_dir}'. Skipping further backup actions and undoing file creations."; rm -f "$tar_file_with_backup_dir"; return; }
+        tar -cpf "$tar_file_with_backup_dir" -C "$file_dir" . ||
+            {
+                log_warning "Problem while creating the tar file '${tar_file_with_backup_dir}'. Skipping further backup actions and undoing file creations."
+                rm -f "$tar_file_with_backup_dir"
+                return
+            }
     else
         log_dry_run "tar -cpf $tar_file_with_backup_dir -C $file_dir ."
     fi
@@ -362,7 +360,12 @@ backup_docker_compose_folder() {
 
     log_info "GZIP..."
     if [[ "$ENABLE_DRY_RUN" == false ]]; then
-        gzip "$tar_file_with_backup_dir" || { log_warning "Problem while compressing the tar file '${tar_file_with_backup_dir}'. Skipping further backup actions and undoing file creations."; rm -f "$tar_file_with_backup_dir" "$gz_file_with_backup_dir"; return; }
+        gzip "$tar_file_with_backup_dir" ||
+            {
+                log_warning "Problem while compressing the tar file '${tar_file_with_backup_dir}'. Skipping further backup actions and undoing file creations."
+                rm -f "$tar_file_with_backup_dir" "$gz_file_with_backup_dir"
+                return
+            }
     else
         log_dry_run "gzip $tar_file_with_backup_dir"
     fi
@@ -403,16 +406,16 @@ perform_action_for_single_docker_compose_container() {
     fi
 
     case $ACTION in
-        update )
-            remove_docker_compose_images
-            ;;
-        backup )
-            backup_docker_compose_folder "$file"
-            ;;
-        all )
-            backup_docker_compose_folder "$file"
-            remove_docker_compose_images
-            ;;
+    update)
+        remove_docker_compose_images
+        ;;
+    backup)
+        backup_docker_compose_folder "$file"
+        ;;
+    all)
+        backup_docker_compose_folder "$file"
+        remove_docker_compose_images
+        ;;
     esac
 
     log_info "UP ('${file_simple_dirname}')..."
@@ -429,24 +432,24 @@ perform_action_for_single_docker_compose_container() {
 perform_action_for_all_docker_compose_containers() {
     log_info ">>>>>>>>>>>>>>> DOCKER COMPOSE >>>>>>>>>>>>>>>"
     case $ACTION in
-        update|backup|all )
-            log_debug "Action selected: '${ACTION}'"
+    update | backup | all)
+        log_debug "Action selected: '${ACTION}'"
 
-            local docker_compose_files=$(find_docker_compose_files)
+        local docker_compose_files=$(find_docker_compose_files)
 
-            if [ -z "$docker_compose_files" ]; then
-                log_error "No ${DOCKER_COMPOSE_NAME} files found in '${SEARCH_DIR}'. Cannot perform action."
-            else
-                log_info "${DOCKER_COMPOSE_NAME} files: "$'\n'"${docker_compose_files}"
-            fi
+        if [ -z "$docker_compose_files" ]; then
+            log_error "No ${DOCKER_COMPOSE_NAME} files found in '${SEARCH_DIR}'. Cannot perform action."
+        else
+            log_info "${DOCKER_COMPOSE_NAME} files: "$'\n'"${docker_compose_files}"
+        fi
 
-            while IFS= read -r file; do
-                perform_action_for_single_docker_compose_container "$file"
-            done <<< "$docker_compose_files"
-            ;;
-        * )
-            log_error "Invalid action: '${ACTION}'"
-            ;;
+        while IFS= read -r file; do
+            perform_action_for_single_docker_compose_container "$file"
+        done <<<"$docker_compose_files"
+        ;;
+    *)
+        log_error "Invalid action: '${ACTION}'"
+        ;;
     esac
     log_info "<<<<<<<<<<<<<<< DOCKER COMPOSE <<<<<<<<<<<<<<<"
 }
@@ -491,7 +494,6 @@ cleanup() {
 
     log_info "<<<<<<<<<<<<<<< CLEANUP <<<<<<<<<<<<<<<"
 }
-
 
 # # # # # # # # # # # #|# # # # # # # # # # # #
 #                    LOGIC                    #
