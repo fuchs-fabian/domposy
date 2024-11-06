@@ -165,7 +165,8 @@ while getopts ":hdna:s:b:e:c" opt; do
         ;;
     d)
         log_debug "'-d' selected"
-        ENABLE_DEBUG_LOGGING=true
+        # shellcheck disable=SC2034
+        LOG_LEVEL=7
         ;;
     n)
         log_debug "'-n' selected"
