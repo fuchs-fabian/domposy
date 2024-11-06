@@ -1,90 +1,88 @@
-#!/bin/bash
+#!/usr/bin/env bash
 
 # DESCRIPTION:
 # This script simplifies your Docker Compose management.
 
-ENABLE_ADVANCED_LOGGING=false
-ENABLE_DEBUG_LOGGING=false
+function source_bin_script {
+    local script_name="$1"
+    local bin_paths=(
+        "/bin"
+        "/usr/bin"
+        "/usr/local/bin"
+        "$HOME/bin"
+    )
 
-LOG_FILE_PATH="/tmp"
+    for bin_path in "${bin_paths[@]}"; do
+        local path="$bin_path/$script_name"
 
-# # # # # # # # # # # #|# # # # # # # # # # # #
-#              SCRIPT INFORMATION             #
-# # # # # # # # # # # #|# # # # # # # # # # # #
+        if [ -L "$path" ]; then
+            local original_path
+            original_path=$(readlink -f "$path")
 
-SCRIPT_DIR=$(dirname "$(realpath "$0")")
-SCRIPT_NAME="$0"
-SIMPLE_SCRIPT_NAME=$(basename "$SCRIPT_NAME")
-SIMPLE_SCRIPT_NAME_WITHOUT_FILE_EXTENSION="${SIMPLE_SCRIPT_NAME%.*}"
+            if [ -f "$original_path" ]; then
+                # shellcheck source=/dev/null
+                source "$original_path" ||
+                    {
+                        echo "Error: Unable to source symlinked script '$original_path'"
+                        return 1
+                    }
+                return 0
+            else
+                echo "Error: Unable to source symlinked script '$script_name' because the original file '$original_path' was not found."
+                return 1
+            fi
+        elif [ -f "$path" ]; then
+            # shellcheck source=/dev/null
+            source "$path" ||
+                {
+                    echo "Error: Unable to source script '$path'"
+                    return 1
+                }
+            return 0
+        fi
+    done
 
-# # # # # # # # # # # #|# # # # # # # # # # # #
-#              LOGGING DIRECTORIES            #
-# # # # # # # # # # # #|# # # # # # # # # # # #
-
-LOG_DIR="${LOG_FILE_PATH}/${SIMPLE_SCRIPT_NAME_WITHOUT_FILE_EXTENSION}_logs/"
-LOG_FILE="$(date +"%Y-%m-%d_%H-%M-%S")_log_${SIMPLE_SCRIPT_NAME_WITHOUT_FILE_EXTENSION}.txt"
-LOG_FILE_WITH_LOG_DIR="${LOG_DIR}${LOG_FILE}"
-
-# # # # # # # # # # # #|# # # # # # # # # # # #
-#             LOGGING FUNCTIONALITY           #
-# # # # # # # # # # # #|# # # # # # # # # # # #
-
-log() {
-    local level="$1"
-    local message="$2"
-
-    if [[ ! -d "$LOG_DIR" ]]; then
-        mkdir -p "$LOG_DIR"
-    fi
-
-    local script_info=""
-    if [ "$ENABLE_ADVANCED_LOGGING" = true ]; then
-        script_info=" ($SIMPLE_SCRIPT_NAME)"
-    fi
-
-    if [[ -n "$message" ]]; then
-        while IFS= read -r line; do
-            echo "$(date +"%d.%m.%Y %H:%M:%S") - $level - $line" >>"$LOG_FILE_WITH_LOG_DIR"
-            echo "  $level$script_info - $line"
-        done <<<"$message"
-    fi
+    echo "Error: Unable to source '$script_name' because it was not found in the specified bin paths (${bin_paths[*]// /, })."
+    return 1
 }
 
-log_debug() {
-    if [ "$ENABLE_DEBUG_LOGGING" = true ]; then
-        log "DEBUG  " "$1"
-    fi
-}
+LOGGER="simbashlog"
 
-log_cmd() {
-    log "CMD    " "$1"
-}
+source_bin_script "$LOGGER" ||
+    {
+        echo "Critical: Unable resolve logger script '$LOGGER'. Exiting..."
+        exit 1
+    }
+
+# shellcheck disable=SC2034
+ENABLE_LOG_FILE=true
+# shellcheck disable=SC2034
+ENABLE_LOG_TO_SYSTEM=false
+# shellcheck disable=SC2034
+LOG_DIR="/tmp/simbashlogs/"
+# shellcheck disable=SC2034
+ENABLE_SIMPLE_LOG_DIR_STRUCTURE=true
+# shellcheck disable=SC2034
+ENABLE_COMBINED_LOG_FILES=false
+# shellcheck disable=SC2034
+LOG_LEVEL=6
+# shellcheck disable=SC2034
+LOG_LEVEL_FOR_SYSTEM_LOGGING=4
+# shellcheck disable=SC2034
+FACILITY_NAME_FOR_SYSTEM_LOGGING="user"
+# shellcheck disable=SC2034
+ENABLE_EXITING_SCRIPT_IF_AT_LEAST_ERROR_IS_LOGGED=false
+# shellcheck disable=SC2034
+ENABLE_DATE_IN_CONSOLE_OUTPUTS_FOR_LOGGING=true
+# shellcheck disable=SC2034
+SHOW_CURRENT_SCRIPT_NAME_IN_CONSOLE_OUTPUTS_FOR_LOGGING="path"
+# shellcheck disable=SC2034
+ENABLE_PARENT_SCRIPT_NAME_IN_CONSOLE_OUTPUTS_FOR_LOGGING=false
+# shellcheck disable=SC2034
+ENABLE_SUMMARY_ON_EXIT=true
 
 log_dry_run() {
-    log "DRY-RUN" "Dry run is enabled. Skipping '$1'"
-}
-
-log_info() {
-    log "INFO   " "$1"
-}
-
-log_warning() {
-    log "WARNING" "$1"
-}
-
-show_log_file() {
-    if [[ -f "$LOG_FILE_WITH_LOG_DIR" ]]; then
-        log_info "Log file: '${LOG_FILE_WITH_LOG_DIR}'"
-    else
-        echo "E R R O R - Log file creation failed: '${LOG_FILE_WITH_LOG_DIR}' - E R R O R"
-    fi
-}
-
-log_error() {
-    log "ERROR  " "$1"
-
-    show_log_file
-    exit 1
+    log_info "Dry run is enabled. Skipping '$1'"
 }
 
 # # # # # # # # # # # #|# # # # # # # # # # # #
@@ -93,10 +91,10 @@ log_error() {
 
 # Checks whether the user has root rights and if not, whether he is at least added to the 'docker' group.
 check_permissions() {
-    log_info "Current user: '$(whoami)'"
+    log_notice "Current user: '$(whoami)'"
     if [[ $(id -u) -ne 0 ]]; then
         if groups $(whoami) | grep -q '\bdocker\b'; then
-            log_warning "You do not have root rights. If you want to create backups, they may not work properly."
+            log_warn "You do not have root rights. If you want to create backups, they may not work properly."
         else
             log_error "You need to be either a member of the 'docker' group or have root privileges to run this script."
         fi
@@ -121,7 +119,7 @@ validate_docker_compose_command() {
     if [[ $? -ne 0 ]]; then
         log_error "Failed to execute '$DOCKER_COMPOSE_CMD version'. Error: $version_output"
     fi
-    log_cmd "$version_output"
+    log_info "$version_output"
 }
 
 check_permissions
@@ -138,7 +136,7 @@ validate_docker_compose_command
 
 DEFAULT_ACTION="backup"
 DEFAULT_SEARCH_DIR="/home/"
-DEFAULT_BACKUP_DIR="/tmp/${SIMPLE_SCRIPT_NAME_WITHOUT_FILE_EXTENSION}_backups/"
+DEFAULT_BACKUP_DIR="/tmp/${CONST_SIMPLE_SCRIPT_NAME_WITHOUT_FILE_EXTENSION}_backups/"
 DEFAULT_EXCLUDE_DIR="tmp"
 
 ACTION="${DEFAULT_ACTION}"
@@ -154,7 +152,7 @@ while getopts ":hdna:s:b:e:c" opt; do
     h)
         echo "It is recommended to run the script with root rights to ensure that the backups work properly."
         echo
-        echo "Usage: (sudo) $SCRIPT_NAME [-h] [-d] [-n] [-a ACTION] [-s SEARCH_DIR] [-b BACKUP_DIR] [-e EXCLUDE_DIR] [-c]"
+        echo "Usage: (sudo) $CONST_SIMPLE_SCRIPT_NAME_WITHOUT_FILE_EXTENSION [-h] [-d] [-n] [-a ACTION] [-s SEARCH_DIR] [-b BACKUP_DIR] [-e EXCLUDE_DIR] [-c]"
         echo "  -h                 Show help"
         echo "  -d                 Enables debug logging"
         echo "  -n                 Executes a dry run, i.e. no changes are made to the file system with the exception of logging"
@@ -212,7 +210,7 @@ validate_search_dir() {
     if [[ "${SEARCH_DIR: -1}" != "/" ]]; then
         tmp_search_dir="${SEARCH_DIR}"
         SEARCH_DIR="${SEARCH_DIR}/"
-        log_warning "SEARCH_DIR: '${tmp_search_dir}' changed to '${SEARCH_DIR}'"
+        log_warn "SEARCH_DIR: '${tmp_search_dir}' changed to '${SEARCH_DIR}'"
     fi
 
     if [[ ! -d "$SEARCH_DIR" ]]; then
@@ -222,38 +220,36 @@ validate_search_dir() {
     local absolute_search_dir=$(realpath "$SEARCH_DIR")
 
     if [[ "$SEARCH_DIR" != "$absolute_search_dir/" ]]; then
-        log_warning "SEARCH_DIR: '${SEARCH_DIR}' replaced with the absolute path '${absolute_search_dir}/'"
+        log_warn "SEARCH_DIR: '${SEARCH_DIR}' replaced with the absolute path '${absolute_search_dir}/'"
         SEARCH_DIR="${absolute_search_dir}/"
     fi
 }
 
 # Returns the most important variables used by this script.
 get_vars() {
-    log_info ">>>>>>>>>>>>>>> VARIABLES >>>>>>>>>>>>>>>"
-    log_info "Script name: '${SCRIPT_NAME}'"
-    log_info "Log file with log dir: '${LOG_FILE_WITH_LOG_DIR}'"
-    log_info "Action: '${ACTION}'"
-    log_info "Search dir: '${SEARCH_DIR}'"
-    log_info "Backup dir: '${BACKUP_DIR}'"
-    log_info "Exclude dir: '${EXCLUDE_DIR}'"
-    log_info "<<<<<<<<<<<<<<< VARIABLES <<<<<<<<<<<<<<<"
+    log_notice ">>>>>>>>>>>>>>> VARIABLES >>>>>>>>>>>>>>>"
+    log_notice "Action: '${ACTION}'"
+    log_notice "Search dir: '${SEARCH_DIR}'"
+    log_notice "Backup dir: '${BACKUP_DIR}'"
+    log_notice "Exclude dir: '${EXCLUDE_DIR}'"
+    log_notice "<<<<<<<<<<<<<<< VARIABLES <<<<<<<<<<<<<<<"
 }
 
 # Outputs information on the Docker status.
 show_docker_info() {
-    log_info ">>>>>>>>>>>>>>> DOCKER INFO >>>>>>>>>>>>>>>"
-    log_info "docker system df..."
-    log_cmd "$(docker system df)"
+    log_notice ">>>>>>>>>>>>>>> DOCKER INFO >>>>>>>>>>>>>>>"
+    log_notice "docker system df..."
+    log_info "$(docker system df)"
 
-    log_info "docker ps..."
-    log_cmd "$(docker ps)"
+    log_notice "docker ps..."
+    log_info "$(docker ps)"
 
-    log_info "docker info (formatted)..."
-    log_cmd "$(docker info --format "Containers: {{.Containers}} | Running: {{.ContainersRunning}} | Paused: {{.ContainersPaused}} | Stopped: {{.ContainersStopped}} | Images: {{.Images}} | Docker Root Dir: {{.DockerRootDir}}")"
+    log_notice "docker info (formatted)..."
+    log_info "$(docker info --format "Containers: {{.Containers}} | Running: {{.ContainersRunning}} | Paused: {{.ContainersPaused}} | Stopped: {{.ContainersStopped}} | Images: {{.Images}} | Docker Root Dir: {{.DockerRootDir}}")"
 
-    log_info "docker images..."
-    log_cmd "$(docker images)"
-    log_info "<<<<<<<<<<<<<<< DOCKER INFO <<<<<<<<<<<<<<<"
+    log_notice "docker images..."
+    log_info "$(docker images)"
+    log_notice "<<<<<<<<<<<<<<< DOCKER INFO <<<<<<<<<<<<<<<"
 }
 
 # Searches for Docker Compose files in a specific directory and excludes a specified subdirectory.
@@ -290,7 +286,7 @@ check_file_creation() {
 
     if [[ "$ENABLE_DRY_RUN" == false ]]; then
         if [[ -f "$file" ]]; then
-            log_info "File created: '$file'"
+            log_notice "File created: '$file'"
         else
             log_error "File creation failed: '$file'"
         fi
@@ -310,7 +306,7 @@ backup_docker_compose_folder() {
 
     if [[ "${BACKUP_DIR: -1}" != "/" ]]; then
         BACKUP_DIR="${BACKUP_DIR}/"
-        log_warning "BACKUP_DIR: '${tmp_backup_dir}' changed to '${BACKUP_DIR}'"
+        log_warn "BACKUP_DIR: '${tmp_backup_dir}' changed to '${BACKUP_DIR}'"
     fi
 
     BACKUP_DIR="${BACKUP_DIR}$(date +"%Y-%m-%d")/"
@@ -318,7 +314,7 @@ backup_docker_compose_folder() {
     if [[ ! -d "$BACKUP_DIR" ]]; then
         if [[ "$ENABLE_DRY_RUN" == false ]]; then
             mkdir -p "$BACKUP_DIR"
-            log_info "Backup directory '$(realpath "$BACKUP_DIR")' was created"
+            log_notice "Backup directory '$(realpath "$BACKUP_DIR")' was created"
         else
             log_dry_run "mkdir -p $BACKUP_DIR"
         fi
@@ -330,11 +326,11 @@ backup_docker_compose_folder() {
     local tar_file_with_backup_dir="${BACKUP_DIR}${tar_file}"
     local gz_file_with_backup_dir="${BACKUP_DIR}${gz_file}"
 
-    log_info "TAR..."
+    log_notice "TAR..."
     if [[ "$ENABLE_DRY_RUN" == false ]]; then
         tar -cpf "$tar_file_with_backup_dir" -C "$file_dir" . ||
             {
-                log_warning "Problem while creating the tar file '${tar_file_with_backup_dir}'. Skipping further backup actions and undoing file creations."
+                log_warn "Problem while creating the tar file '${tar_file_with_backup_dir}'. Skipping further backup actions and undoing file creations."
                 rm -f "$tar_file_with_backup_dir"
                 return
             }
@@ -343,11 +339,11 @@ backup_docker_compose_folder() {
     fi
     check_file_creation $tar_file_with_backup_dir
 
-    log_info "GZIP..."
+    log_notice "GZIP..."
     if [[ "$ENABLE_DRY_RUN" == false ]]; then
         gzip "$tar_file_with_backup_dir" ||
             {
-                log_warning "Problem while compressing the tar file '${tar_file_with_backup_dir}'. Skipping further backup actions and undoing file creations."
+                log_warn "Problem while compressing the tar file '${tar_file_with_backup_dir}'. Skipping further backup actions and undoing file creations."
                 rm -f "$tar_file_with_backup_dir" "$gz_file_with_backup_dir"
                 return
             }
@@ -356,18 +352,18 @@ backup_docker_compose_folder() {
     fi
     check_file_creation $gz_file_with_backup_dir
 
-    log_info "'${BACKUP_DIR}'..."
+    log_notice "'${BACKUP_DIR}'..."
     if [[ "$ENABLE_DRY_RUN" == false ]]; then
-        log_cmd "$(ls -larth "${BACKUP_DIR}")"
+        log_info "$(ls -larth "${BACKUP_DIR}")"
     else
         log_dry_run "ls -larth $BACKUP_DIR"
     fi
 
-    log_info "[-->] Backup created. You can download '${gz_file_with_backup_dir}' e.g. with FileZilla."
-    log_info "[-->] To navigate to the backup folder: 'cd ${BACKUP_DIR}'"
-    log_info "[-->] To move the file: '(sudo) mv ${gz_file} /my/dir/for/${DOCKER_COMPOSE_NAME}-containers/${file_simple_dirname}/'"
-    log_info "[-->] To undo gzip: '(sudo) gunzip ${gz_file}'"
-    log_info "[-->] To unpack the tar file: '(sudo) tar -xpf ${tar_file}'"
+    log_notice "[-->] Backup created. You can download '${gz_file_with_backup_dir}' e.g. with FileZilla."
+    log_notice "[-->] To navigate to the backup folder: 'cd ${BACKUP_DIR}'"
+    log_notice "[-->] To move the file: '(sudo) mv ${gz_file} /my/dir/for/${DOCKER_COMPOSE_NAME}-containers/${file_simple_dirname}/'"
+    log_notice "[-->] To undo gzip: '(sudo) gunzip ${gz_file}'"
+    log_notice "[-->] To unpack the tar file: '(sudo) tar -xpf ${tar_file}'"
 }
 
 # Performs a specific action for a Docker Compose configuration file.
@@ -377,15 +373,15 @@ perform_action_for_single_docker_compose_container() {
     local file_simple_dirname=$(basename "$(dirname "$file")")
     debug_file_info "Perform action for single Docker Compose container" "$file" "$file_dir" "$file_simple_dirname"
 
-    log_info ">>>>>>>>>> '${file}' >>>>>>>>>>"
+    log_notice ">>>>>>>>>> '${file}' >>>>>>>>>>"
 
     cd "${file_dir}"
-    log_info "Changed directory to '$(pwd)'"
+    log_notice "Changed directory to '$(pwd)'"
 
-    log_info ">>>>> '${ACTION}' >>>>>"
-    log_info "DOWN ('${file_simple_dirname}')..."
+    log_notice ">>>>> '${ACTION}' >>>>>"
+    log_notice "DOWN ('${file_simple_dirname}')..."
     if [[ "$ENABLE_DRY_RUN" == false ]]; then
-        log_cmd "$($DOCKER_COMPOSE_CMD down)"
+        log_info "$($DOCKER_COMPOSE_CMD down)"
     else
         log_dry_run "$DOCKER_COMPOSE_CMD down"
     fi
@@ -396,19 +392,19 @@ perform_action_for_single_docker_compose_container() {
         ;;
     esac
 
-    log_info "UP ('${file_simple_dirname}')..."
+    log_notice "UP ('${file_simple_dirname}')..."
     if [[ "$ENABLE_DRY_RUN" == false ]]; then
-        log_cmd "$($DOCKER_COMPOSE_CMD up -d)"
+        log_info "$($DOCKER_COMPOSE_CMD up -d)"
     else
         log_dry_run "$DOCKER_COMPOSE_CMD up -d"
     fi
-    log_info "<<<<< '${ACTION}' <<<<<"
-    log_info "<<<<<<<<<< '${file}' <<<<<<<<<<"
+    log_notice "<<<<< '${ACTION}' <<<<<"
+    log_notice "<<<<<<<<<< '${file}' <<<<<<<<<<"
 }
 
 # Performs a specified action for all Docker Compose files in a search directory.
 perform_action_for_all_docker_compose_containers() {
-    log_info ">>>>>>>>>>>>>>> DOCKER COMPOSE >>>>>>>>>>>>>>>"
+    log_notice ">>>>>>>>>>>>>>> DOCKER COMPOSE >>>>>>>>>>>>>>>"
     case $ACTION in
     backup)
         log_debug "Action selected: '${ACTION}'"
@@ -418,7 +414,7 @@ perform_action_for_all_docker_compose_containers() {
         if [ -z "$docker_compose_files" ]; then
             log_error "No ${DOCKER_COMPOSE_NAME} files found in '${SEARCH_DIR}'. Cannot perform action."
         else
-            log_info "${DOCKER_COMPOSE_NAME} files: "$'\n'"${docker_compose_files}"
+            log_notice "${DOCKER_COMPOSE_NAME} files: "$'\n'"${docker_compose_files}"
         fi
 
         while IFS= read -r file; do
@@ -429,63 +425,63 @@ perform_action_for_all_docker_compose_containers() {
         log_error "Invalid action: '${ACTION}'"
         ;;
     esac
-    log_info "<<<<<<<<<<<<<<< DOCKER COMPOSE <<<<<<<<<<<<<<<"
+    log_notice "<<<<<<<<<<<<<<< DOCKER COMPOSE <<<<<<<<<<<<<<<"
 }
 
 # Performs a cleanup of the Docker resources
 cleanup() {
-    log_info ">>>>>>>>>>>>>>> CLEANUP >>>>>>>>>>>>>>>"
+    log_notice ">>>>>>>>>>>>>>> CLEANUP >>>>>>>>>>>>>>>"
 
-    log_info ">>>>>>>>>> PREVIEW >>>>>>>>>>"
-    log_info "Listing non-running containers..."
-    log_cmd "$(docker ps -a --filter status=created --filter status=restarting --filter status=paused --filter status=exited --filter status=dead)"
+    log_notice ">>>>>>>>>> PREVIEW >>>>>>>>>>"
+    log_notice "Listing non-running containers..."
+    log_info "$(docker ps -a --filter status=created --filter status=restarting --filter status=paused --filter status=exited --filter status=dead)"
 
-    log_info "Listing unused docker images..."
-    log_cmd "$(docker image ls -a --filter dangling=true)"
+    log_notice "Listing unused docker images..."
+    log_info "$(docker image ls -a --filter dangling=true)"
 
-    log_info "Listing unused volumes..."
-    log_cmd "$(docker volume ls --filter dangling=true)"
-    log_info "<<<<<<<<<< PREVIEW <<<<<<<<<<"
+    log_notice "Listing unused volumes..."
+    log_info "$(docker volume ls --filter dangling=true)"
+    log_notice "<<<<<<<<<< PREVIEW <<<<<<<<<<"
 
-    log_info ">>>>>>>>>> CLEAN >>>>>>>>>>"
-    log_info "Removing non-running containers..."
+    log_notice ">>>>>>>>>> CLEAN >>>>>>>>>>"
+    log_notice "Removing non-running containers..."
     if [[ "$ENABLE_DRY_RUN" == false ]]; then
-        log_cmd "$(docker container prune -f)"
+        log_info "$(docker container prune -f)"
     else
         log_dry_run "docker container prune -f"
     fi
 
-    log_info "Removing unused docker images..."
+    log_notice "Removing unused docker images..."
     if [[ "$ENABLE_DRY_RUN" == false ]]; then
-        log_cmd "$(docker image prune -f)"
+        log_info "$(docker image prune -f)"
     else
         log_dry_run "docker image prune -f"
     fi
 
-    log_info "Removing unused volumes..."
+    log_notice "Removing unused volumes..."
     if [[ "$ENABLE_DRY_RUN" == false ]]; then
-        log_cmd "$(docker volume prune -f)"
+        log_info "$(docker volume prune -f)"
     else
         log_dry_run "docker volume prune -f"
     fi
-    log_info "<<<<<<<<<< CLEAN <<<<<<<<<<"
+    log_notice "<<<<<<<<<< CLEAN <<<<<<<<<<"
 
-    log_info "<<<<<<<<<<<<<<< CLEANUP <<<<<<<<<<<<<<<"
+    log_notice "<<<<<<<<<<<<<<< CLEANUP <<<<<<<<<<<<<<<"
 }
 
 # # # # # # # # # # # #|# # # # # # # # # # # #
 #                    LOGIC                    #
 # # # # # # # # # # # #|# # # # # # # # # # # #
 
-log_info "'$SIMPLE_SCRIPT_NAME_WITHOUT_FILE_EXTENSION' has started."
+log_notice "'$CONST_SIMPLE_SCRIPT_NAME_WITHOUT_FILE_EXTENSION' has started."
 
 if $ENABLE_DRY_RUN; then
-    log_warning "Dry run is enabled!"
+    log_warn "Dry run is enabled!"
 fi
 
 validate_search_dir
 
-log_info "Current directory: '$(pwd)'"
+log_notice "Current directory: '$(pwd)'"
 
 get_vars
 
@@ -499,5 +495,4 @@ fi
 
 show_docker_info
 
-show_log_file
 exit 0

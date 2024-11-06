@@ -1,8 +1,8 @@
 # `domposy`: Simplify your Docker Compose management - Create backups...
 
 <p align="center">
-  <a href="https://github.com/fuchs-fabian/domposy/blob/main/LICENSE">
-    <img alt="MIT License" src="https://img.shields.io/badge/license-MIT-brightgreen">
+  <a href="./LICENSE">
+    <img alt="GPL-3.0 License" src="https://img.shields.io/badge/GitHub-GPL--3.0-informational">
   </a>
 </p>
 
@@ -105,3 +105,9 @@ If you think this tool is useful and saves you a lot of work and nerves and lets
 ## This might also interest you
 
 [`esase`](https://github.com/fuchs-fabian/esase): Easy Setup And System Enhancement (Popup based Linux Bash script/tool)
+
+---
+
+> This repository uses [`simbashlog`](https://github.com/fuchs-fabian/simbashlog) ([LICENSE](https://github.com/fuchs-fabian/simbashlog/blob/main/LICENSE)).
+>
+> *Copyright (C) 2024 Fabian Fuchs*
