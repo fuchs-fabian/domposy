@@ -81,8 +81,42 @@ ENABLE_PARENT_SCRIPT_NAME_IN_CONSOLE_OUTPUTS_FOR_LOGGING=false
 # shellcheck disable=SC2034
 ENABLE_SUMMARY_ON_EXIT=true
 
-log_dry_run() {
+function log_dry_run {
     log_info "Dry run is enabled. Skipping '$1'"
+}
+
+function log_delimiter {
+    local level="$1"
+    local text="$2"
+    local char="$3"
+    local use_uppercase="$4"
+    local number
+    local separator=""
+
+    case $level in
+    1) number=15 ;;
+    2) number=10 ;;
+    3) number=5 ;;
+    *) number=3 ;;
+    esac
+
+    for ((i = 0; i < number; i++)); do
+        separator+="$char"
+    done
+
+    if is_true "$use_uppercase"; then
+        text=$(to_uppercase "$text")
+    fi
+
+    log_info "$separator ${text} $separator"
+}
+
+function log_delimiter_start {
+    log_delimiter "$1" "$2" ">" false
+}
+
+function log_delimiter_end {
+    log_delimiter "$1" "$2" "<" false
 }
 
 # # # # # # # # # # # #|# # # # # # # # # # # #
@@ -90,7 +124,7 @@ log_dry_run() {
 # # # # # # # # # # # #|# # # # # # # # # # # #
 
 # Checks whether the user has root rights and if not, whether he is at least added to the 'docker' group.
-check_permissions() {
+function check_permissions {
     log_notice "Current user: '$(whoami)'"
     if [[ $(id -u) -ne 0 ]]; then
         if groups $(whoami) | grep -q '\bdocker\b'; then
@@ -102,7 +136,7 @@ check_permissions() {
 }
 
 # Returns the Docker Compose command. So whether 'docker-compose' or 'docker compose'.
-get_docker_compose_command() {
+function get_docker_compose_command {
     if command -v docker-compose &>/dev/null; then
         echo "docker-compose"
     elif docker compose version &>/dev/null; then
@@ -113,7 +147,7 @@ get_docker_compose_command() {
 }
 
 # Validates whether the docker compose command can also be executed by determining the version.
-validate_docker_compose_command() {
+function validate_docker_compose_command {
     local version_output="$($DOCKER_COMPOSE_CMD version 2>&1)"
 
     if [[ $? -ne 0 ]]; then
@@ -207,7 +241,7 @@ shift $((OPTIND - 1))
 # # # # # # # # # # # #|# # # # # # # # # # # #
 
 # Validation of the search dir and adjustments (absolute path) if necessary.
-validate_search_dir() {
+function validate_search_dir {
     if [[ "${SEARCH_DIR: -1}" != "/" ]]; then
         tmp_search_dir="${SEARCH_DIR}"
         SEARCH_DIR="${SEARCH_DIR}/"
@@ -227,18 +261,18 @@ validate_search_dir() {
 }
 
 # Returns the most important variables used by this script.
-get_vars() {
-    log_notice ">>>>>>>>>>>>>>> VARIABLES >>>>>>>>>>>>>>>"
+function get_vars {
+    log_delimiter_start 1 "VARIABLES"
     log_notice "Action: '${ACTION}'"
     log_notice "Search dir: '${SEARCH_DIR}'"
     log_notice "Backup dir: '${BACKUP_DIR}'"
     log_notice "Exclude dir: '${EXCLUDE_DIR}'"
-    log_notice "<<<<<<<<<<<<<<< VARIABLES <<<<<<<<<<<<<<<"
+    log_delimiter_end 1 "VARIABLES"
 }
 
 # Outputs information on the Docker status.
-show_docker_info() {
-    log_notice ">>>>>>>>>>>>>>> DOCKER INFO >>>>>>>>>>>>>>>"
+function show_docker_info {
+    log_delimiter_start 1 "DOCKER INFO"
     log_notice "docker system df..."
     log_info "$(docker system df)"
 
@@ -250,11 +284,11 @@ show_docker_info() {
 
     log_notice "docker images..."
     log_info "$(docker images)"
-    log_notice "<<<<<<<<<<<<<<< DOCKER INFO <<<<<<<<<<<<<<<"
+    log_delimiter_end 1 "DOCKER INFO"
 }
 
 # Searches for Docker Compose files in a specific directory and excludes a specified subdirectory.
-find_docker_compose_files() {
+function find_docker_compose_files {
     local docker_compose_file_names=("${DOCKER_COMPOSE_NAME}.yml" "${DOCKER_COMPOSE_NAME}.yaml")
     local docker_compose_files=""
 
@@ -268,7 +302,7 @@ find_docker_compose_files() {
 }
 
 # Outputs debug information for a file.
-debug_file_info() {
+function debug_file_info {
     local func_description="$1"
     local file="$2"
     local file_dir="$3"
@@ -280,7 +314,7 @@ debug_file_info() {
 }
 
 # Checks whether a file has been created, if not, the script is cancelled.
-check_file_creation() {
+function check_file_creation {
     local file=$1
 
     debug_file_info "Check file creation" "$file"
@@ -297,7 +331,7 @@ check_file_creation() {
 }
 
 # Creates a backup of a Docker Compose folder by packing the files into a tar archive and then compressing them.
-backup_docker_compose_folder() {
+function backup_docker_compose_folder {
     local file=$1
     local file_dir=$(dirname "$file")
     local file_simple_dirname=$(basename "$(dirname "$file")")
@@ -368,18 +402,19 @@ backup_docker_compose_folder() {
 }
 
 # Performs a specific action for a Docker Compose configuration file.
-perform_action_for_single_docker_compose_container() {
+function perform_action_for_single_docker_compose_container {
     local file=$1
     local file_dir=$(dirname "$file")
     local file_simple_dirname=$(basename "$(dirname "$file")")
     debug_file_info "Perform action for single Docker Compose container" "$file" "$file_dir" "$file_simple_dirname"
 
-    log_notice ">>>>>>>>>> '${file}' >>>>>>>>>>"
+    log_delimiter_start 2 "'${file}'"
 
     cd "${file_dir}"
     log_notice "Changed directory to '$(pwd)'"
 
-    log_notice ">>>>> '${ACTION}' >>>>>"
+    log_delimiter_start 3 "'${ACTION}'"
+
     log_notice "DOWN ('${file_simple_dirname}')..."
     if [[ "$ENABLE_DRY_RUN" == false ]]; then
         log_info "$($DOCKER_COMPOSE_CMD down)"
@@ -399,13 +434,14 @@ perform_action_for_single_docker_compose_container() {
     else
         log_dry_run "$DOCKER_COMPOSE_CMD up -d"
     fi
-    log_notice "<<<<< '${ACTION}' <<<<<"
-    log_notice "<<<<<<<<<< '${file}' <<<<<<<<<<"
+
+    log_delimiter_end 3 "'${ACTION}'"
+    log_delimiter_end 2 "'${file}'"
 }
 
 # Performs a specified action for all Docker Compose files in a search directory.
-perform_action_for_all_docker_compose_containers() {
-    log_notice ">>>>>>>>>>>>>>> DOCKER COMPOSE >>>>>>>>>>>>>>>"
+function perform_action_for_all_docker_compose_containers {
+    log_delimiter_start 1 "DOCKER COMPOSE"
     case $ACTION in
     backup)
         log_debug "Action selected: '${ACTION}'"
@@ -426,14 +462,14 @@ perform_action_for_all_docker_compose_containers() {
         log_error "Invalid action: '${ACTION}'"
         ;;
     esac
-    log_notice "<<<<<<<<<<<<<<< DOCKER COMPOSE <<<<<<<<<<<<<<<"
+    log_delimiter_end 1 "DOCKER COMPOSE"
 }
 
 # Performs a cleanup of the Docker resources
-cleanup() {
-    log_notice ">>>>>>>>>>>>>>> CLEANUP >>>>>>>>>>>>>>>"
+function cleanup {
+    log_delimiter_start 1 "CLEANUP"
 
-    log_notice ">>>>>>>>>> PREVIEW >>>>>>>>>>"
+    log_delimiter_start 2 "PREVIEW"
     log_notice "Listing non-running containers..."
     log_info "$(docker ps -a --filter status=created --filter status=restarting --filter status=paused --filter status=exited --filter status=dead)"
 
@@ -442,9 +478,9 @@ cleanup() {
 
     log_notice "Listing unused volumes..."
     log_info "$(docker volume ls --filter dangling=true)"
-    log_notice "<<<<<<<<<< PREVIEW <<<<<<<<<<"
+    log_delimiter_end 2 "PREVIEW"
 
-    log_notice ">>>>>>>>>> CLEAN >>>>>>>>>>"
+    log_delimiter_start 2 "CLEAN"
     log_notice "Removing non-running containers..."
     if [[ "$ENABLE_DRY_RUN" == false ]]; then
         log_info "$(docker container prune -f)"
@@ -465,9 +501,9 @@ cleanup() {
     else
         log_dry_run "docker volume prune -f"
     fi
-    log_notice "<<<<<<<<<< CLEAN <<<<<<<<<<"
+    log_delimiter_end 2 "CLEAN"
 
-    log_notice "<<<<<<<<<<<<<<< CLEANUP <<<<<<<<<<<<<<<"
+    log_delimiter_end 1 "CLEANUP"
 }
 
 # # # # # # # # # # # #|# # # # # # # # # # # #
