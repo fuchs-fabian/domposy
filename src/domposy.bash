@@ -88,7 +88,7 @@ LOG_LEVEL_FOR_SYSTEM_LOGGING=4
 # shellcheck disable=SC2034
 FACILITY_NAME_FOR_SYSTEM_LOGGING="user"
 # shellcheck disable=SC2034
-ENABLE_EXITING_SCRIPT_IF_AT_LEAST_ERROR_IS_LOGGED=false
+ENABLE_EXITING_SCRIPT_IF_AT_LEAST_ERROR_IS_LOGGED=true
 # shellcheck disable=SC2034
 ENABLE_DATE_IN_CONSOLE_OUTPUTS_FOR_LOGGING=true
 # shellcheck disable=SC2034
@@ -148,7 +148,7 @@ function log_delimiter_end {
 function check_permissions {
     log_notice "Current user: '$(whoami)'"
     if [[ $(id -u) -ne 0 ]]; then
-        if groups $(whoami) | grep -q '\bdocker\b'; then
+        if groups "$(whoami)" | grep -q '\bdocker\b'; then
             log_warn "You do not have root rights. If you want to create backups, they may not work properly."
         else
             log_error "You need to be either a member of the 'docker' group or have root privileges to run this script."
@@ -169,11 +169,8 @@ function get_docker_compose_command {
 
 # Validates whether the docker compose command can also be executed by determining the version.
 function validate_docker_compose_command {
-    local version_output="$($DOCKER_COMPOSE_CMD version 2>&1)"
-
-    if [[ $? -ne 0 ]]; then
-        log_error "Failed to execute '$DOCKER_COMPOSE_CMD version'. Error: $version_output"
-    fi
+    local version_output
+    version_output=$($DOCKER_COMPOSE_CMD version 2>&1) || log_error "Failed to execute '$DOCKER_COMPOSE_CMD version'. Error: $version_output"
     log_info "$version_output"
 }
 
@@ -281,7 +278,8 @@ function validate_search_dir {
         log_error "The specified search directory '$SEARCH_DIR' could not be found"
     fi
 
-    local absolute_search_dir=$(realpath "$SEARCH_DIR")
+    local absolute_search_dir
+    absolute_search_dir=$(realpath "$SEARCH_DIR")
 
     if [[ "$SEARCH_DIR" != "$absolute_search_dir/" ]]; then
         log_warn "SEARCH_DIR: '${SEARCH_DIR}' replaced with the absolute path '${absolute_search_dir}/'"
@@ -362,8 +360,13 @@ function check_file_creation {
 # Creates a backup of a Docker Compose folder by packing the files into a tar archive and then compressing them.
 function backup_docker_compose_folder {
     local file=$1
-    local file_dir=$(dirname "$file")
-    local file_simple_dirname=$(basename "$(dirname "$file")")
+
+    local file_dir
+    file_dir=$(dirname "$file")
+
+    local file_simple_dirname
+    file_simple_dirname=$(basename "$(dirname "$file")")
+
     debug_file_info "Backup Docker Compose folder" "$file" "$file_dir" "$file_simple_dirname"
 
     local tmp_backup_dir="${BACKUP_DIR}"
@@ -384,7 +387,9 @@ function backup_docker_compose_folder {
         fi
     fi
 
-    local tar_file="$(date +"%Y-%m-%d_%H-%M-%S")_backup_${file_simple_dirname}.tar"
+    local tar_file
+    tar_file="$(date +"%Y-%m-%d_%H-%M-%S")_backup_${file_simple_dirname}.tar"
+
     local gz_file="${tar_file}.gz"
 
     local tar_file_with_backup_dir="${BACKUP_DIR}${tar_file}"
@@ -401,7 +406,7 @@ function backup_docker_compose_folder {
     else
         log_dry_run "tar -cpf $tar_file_with_backup_dir -C $file_dir ."
     fi
-    check_file_creation $tar_file_with_backup_dir
+    check_file_creation "$tar_file_with_backup_dir"
 
     log_notice "GZIP..."
     if [[ "$ENABLE_DRY_RUN" == false ]]; then
@@ -414,7 +419,7 @@ function backup_docker_compose_folder {
     else
         log_dry_run "gzip $tar_file_with_backup_dir"
     fi
-    check_file_creation $gz_file_with_backup_dir
+    check_file_creation "$gz_file_with_backup_dir"
 
     log_notice "'${BACKUP_DIR}'..."
     if [[ "$ENABLE_DRY_RUN" == false ]]; then
@@ -433,13 +438,19 @@ function backup_docker_compose_folder {
 # Performs a specific action for a Docker Compose configuration file.
 function perform_action_for_single_docker_compose_container {
     local file=$1
-    local file_dir=$(dirname "$file")
-    local file_simple_dirname=$(basename "$(dirname "$file")")
+
+    local file_dir
+    file_dir=$(dirname "$file")
+
+    local file_simple_dirname
+    file_simple_dirname=$(basename "$(dirname "$file")")
+
     debug_file_info "Perform action for single Docker Compose container" "$file" "$file_dir" "$file_simple_dirname"
 
     log_delimiter_start 2 "'${file}'"
 
-    cd "${file_dir}"
+    cd "${file_dir}" || log_error "Failed to change directory to '${file_dir}'"
+
     log_notice "Changed directory to '$(pwd)'"
 
     log_delimiter_start 3 "'${ACTION}'"
@@ -475,7 +486,8 @@ function perform_action_for_all_docker_compose_containers {
     backup)
         log_debug "Action selected: '${ACTION}'"
 
-        local docker_compose_files=$(find_docker_compose_files)
+        local docker_compose_files
+        docker_compose_files=$(find_docker_compose_files)
 
         if [ -z "$docker_compose_files" ]; then
             log_error "No ${DOCKER_COMPOSE_NAME} files found in '${SEARCH_DIR}'. Cannot perform action."
