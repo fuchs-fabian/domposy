@@ -264,8 +264,22 @@ function dry_run_enabled {
     is_true "$ENABLE_DRY_RUN"
 }
 
-# Validation of the search dir and adjustments (absolute path) if necessary.
-function validate_search_dir {
+function get_vars {
+    log_delimiter_start 1 "VARIABLES"
+    log_notice "Action: '${ACTION}'"
+    log_notice "Search dir: '${SEARCH_DIR}'"
+    log_notice "Backup dir: '${BACKUP_DIR}'"
+    log_notice "Exclude dir: '${EXCLUDE_DIR}'"
+    log_delimiter_end 1 "VARIABLES"
+}
+
+# ╔═════════════════════╦══════════════════════╗
+# ║                                            ║
+# ║                DIRECTORIES                 ║
+# ║                                            ║
+# ╚═════════════════════╩══════════════════════╝
+
+function prepare_search_dir {
     if [[ "${SEARCH_DIR: -1}" != "/" ]]; then
         tmp_search_dir="${SEARCH_DIR}"
         SEARCH_DIR="${SEARCH_DIR}/"
@@ -282,76 +296,6 @@ function validate_search_dir {
     if [[ "$SEARCH_DIR" != "$absolute_search_dir/" ]]; then
         log_warn "SEARCH_DIR: '${SEARCH_DIR}' replaced with the absolute path '${absolute_search_dir}/'"
         SEARCH_DIR="${absolute_search_dir}/"
-    fi
-}
-
-# Returns the most important variables used by this script.
-function get_vars {
-    log_delimiter_start 1 "VARIABLES"
-    log_notice "Action: '${ACTION}'"
-    log_notice "Search dir: '${SEARCH_DIR}'"
-    log_notice "Backup dir: '${BACKUP_DIR}'"
-    log_notice "Exclude dir: '${EXCLUDE_DIR}'"
-    log_delimiter_end 1 "VARIABLES"
-}
-
-# Outputs information on the Docker status.
-function show_docker_info {
-    log_delimiter_start 1 "DOCKER INFO"
-    log_notice "docker system df..."
-    log_info "$(docker system df)"
-
-    log_notice "docker ps..."
-    log_info "$(docker ps)"
-
-    log_notice "docker info (formatted)..."
-    log_info "$(docker info --format "Containers: {{.Containers}} | Running: {{.ContainersRunning}} | Paused: {{.ContainersPaused}} | Stopped: {{.ContainersStopped}} | Images: {{.Images}} | Docker Root Dir: {{.DockerRootDir}}")"
-
-    log_notice "docker images..."
-    log_info "$(docker images)"
-    log_delimiter_end 1 "DOCKER INFO"
-}
-
-# Searches for Docker Compose files in a specific directory and excludes a specified subdirectory.
-function find_docker_compose_files {
-    local docker_compose_file_names=("${DOCKER_COMPOSE_NAME}.yml" "${DOCKER_COMPOSE_NAME}.yaml")
-    local docker_compose_files=""
-
-    for name in "${docker_compose_file_names[@]}"; do
-        files=$(find "$SEARCH_DIR" -path "*/${EXCLUDE_DIR}/*" -prune -o -name "$name" -print 2>/dev/null)
-        if [ -n "$files" ]; then
-            docker_compose_files+="$files"$'\n'
-        fi
-    done
-    echo "$docker_compose_files"
-}
-
-# Outputs debug information for a file.
-function debug_file_info {
-    local func_description="$1"
-    local file="$2"
-    local file_dir="$3"
-    local file_simple_dirname="$4"
-
-    [[ -n "$file" ]] && log_debug "(${func_description}) file: '${file}'"
-    [[ -n "$file_dir" ]] && log_debug "(${func_description}) file dir: '${file_dir}'"
-    [[ -n "$file_simple_dirname" ]] && log_debug "(${func_description}) file simple dirname: '${file_simple_dirname}'"
-}
-
-# Checks whether a file has been created, if not, the script is cancelled.
-function check_file_creation {
-    local file=$1
-
-    debug_file_info "Check file creation" "$file"
-
-    if dry_run_enabled; then
-        log_dry_run "ls -larth $file"
-    else
-        if [[ -f "$file" ]]; then
-            log_notice "File created: '$file'"
-        else
-            log_error "File creation failed: '$file'"
-        fi
     fi
 }
 
@@ -376,6 +320,84 @@ function prepare_backup_dir {
     fi
 
     BACKUP_DIR="$final_backup_dir"
+}
+
+# ╔═════════════════════╦══════════════════════╗
+# ║                                            ║
+# ║                  DOCKER                    ║
+# ║                                            ║
+# ╚═════════════════════╩══════════════════════╝
+
+function show_docker_info {
+    log_delimiter_start 1 "DOCKER INFO"
+    log_notice "docker system df..."
+    log_info "$(docker system df)"
+
+    log_notice "docker ps..."
+    log_info "$(docker ps)"
+
+    log_notice "docker info (formatted)..."
+    log_info "$(docker info --format "Containers: {{.Containers}} | Running: {{.ContainersRunning}} | Paused: {{.ContainersPaused}} | Stopped: {{.ContainersStopped}} | Images: {{.Images}} | Docker Root Dir: {{.DockerRootDir}}")"
+
+    log_notice "docker images..."
+    log_info "$(docker images)"
+    log_delimiter_end 1 "DOCKER INFO"
+}
+
+# ╔═════════════════════╦══════════════════════╗
+# ║                                            ║
+# ║                   FILES                    ║
+# ║                                            ║
+# ╚═════════════════════╩══════════════════════╝
+
+function debug_file_info {
+    local func_description="$1"
+    local file="$2"
+    local file_dir="$3"
+    local file_simple_dirname="$4"
+
+    [[ -n "$file" ]] && log_debug "(${func_description}) file: '${file}'"
+    [[ -n "$file_dir" ]] && log_debug "(${func_description}) file dir: '${file_dir}'"
+    [[ -n "$file_simple_dirname" ]] && log_debug "(${func_description}) file simple dirname: '${file_simple_dirname}'"
+}
+
+function check_file_creation {
+    local file=$1
+
+    debug_file_info "Check file creation" "$file"
+
+    if dry_run_enabled; then
+        log_dry_run "ls -larth $file"
+    else
+        if [[ -f "$file" ]]; then
+            log_notice "File created: '$file'"
+        else
+            log_error "File creation failed: '$file'"
+        fi
+    fi
+}
+
+# ╔═════════════════════╦══════════════════════╗
+# ║                                            ║
+# ║                  BACKUP                    ║
+# ║                                            ║
+# ╚═════════════════════╩══════════════════════╝
+
+function find_docker_compose_files {
+    local docker_compose_file_names=(
+        "${DOCKER_COMPOSE_NAME}.yml"
+        "${DOCKER_COMPOSE_NAME}.yaml"
+    )
+
+    local docker_compose_files=""
+
+    for name in "${docker_compose_file_names[@]}"; do
+        files=$(find "$SEARCH_DIR" -path "*/${EXCLUDE_DIR}/*" -prune -o -name "$name" -print 2>/dev/null)
+        if [ -n "$files" ]; then
+            docker_compose_files+="$files"$'\n'
+        fi
+    done
+    echo "$docker_compose_files"
 }
 
 # Creates a backup of a Docker Compose project folder by packing the files into a tar archive and then compressing them.
@@ -494,6 +516,12 @@ function backup_docker_compose_projects {
     log_delimiter_end 1 "BACKUP"
 }
 
+# ╔═════════════════════╦══════════════════════╗
+# ║                                            ║
+# ║                   CLEAN                    ║
+# ║                                            ║
+# ╚═════════════════════╩══════════════════════╝
+
 function clean_docker_environment {
     function process_preview {
         log_delimiter_start 2 "PREVIEW"
@@ -531,6 +559,12 @@ function clean_docker_environment {
     log_delimiter_end 1 "CLEAN"
 }
 
+# ╔═════════════════════╦══════════════════════╗
+# ║                                            ║
+# ║                  ACTIONS                   ║
+# ║                                            ║
+# ╚═════════════════════╩══════════════════════╝
+
 function perform_action {
     log_debug "Action selected: '${ACTION}'"
     case $ACTION in
@@ -558,7 +592,7 @@ log_notice "'$CONST_SIMPLE_SCRIPT_NAME_WITHOUT_FILE_EXTENSION' has started."
 
 if dry_run_enabled; then log_warn "Dry run is enabled!"; fi
 
-validate_search_dir
+prepare_search_dir
 log_notice "Current directory: '$(pwd)'"
 
 get_vars
