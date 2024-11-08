@@ -429,11 +429,11 @@ function backup_docker_compose_folder {
     log_notice "'${BACKUP_DIR}'..."
     if dry_run_enabled; then log_dry_run "ls -larth $BACKUP_DIR"; else log_info "$(ls -larth "$BACKUP_DIR")"; fi
 
-    log_notice "[-->] Backup created. You can download '${gz_file_with_backup_dir}' e.g. with FileZilla."
-    log_notice "[-->] To navigate to the backup folder: 'cd ${BACKUP_DIR}'"
-    log_notice "[-->] To move the file: '(sudo) mv ${gz_file} /my/dir/for/${DOCKER_COMPOSE_NAME}-containers/${file_simple_dirname}/'"
-    log_notice "[-->] To undo gzip: '(sudo) gunzip ${gz_file}'"
-    log_notice "[-->] To unpack the tar file: '(sudo) tar -xpf ${tar_file}'"
+    log_notice "--> Backup created. You can download '${gz_file_with_backup_dir}' e.g. with FileZilla."
+    log_notice "--> To navigate to the backup folder: 'cd ${BACKUP_DIR}'"
+    log_notice "--> To move the file: '(sudo) mv ${gz_file} /my/dir/for/${DOCKER_COMPOSE_NAME}-containers/${file_simple_dirname}/'"
+    log_notice "--> To undo gzip: '(sudo) gunzip ${gz_file}'"
+    log_notice "--> To unpack the tar file: '(sudo) tar -xpf ${tar_file}'"
 }
 
 # Performs a specific action for a Docker Compose configuration file.
