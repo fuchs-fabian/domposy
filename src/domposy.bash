@@ -451,13 +451,21 @@ function perform_action_for_single_docker_compose_container {
     log_delimiter_start 2 "'${file}'"
 
     cd "${file_dir}" || log_error "Failed to change directory to '${file_dir}'"
-
     log_notice "Changed directory to '$(pwd)'"
 
     log_delimiter_start 3 "'${ACTION}'"
 
-    log_notice "DOWN ('${file_simple_dirname}')..."
-    if dry_run_enabled; then log_dry_run "$DOCKER_COMPOSE_CMD down"; else log_info "$($DOCKER_COMPOSE_CMD down)"; fi
+    function down {
+        log_notice "DOWN ('${file_simple_dirname}')..."
+        if dry_run_enabled; then log_dry_run "$DOCKER_COMPOSE_CMD down"; else log_info "$($DOCKER_COMPOSE_CMD down)"; fi
+    }
+
+    function up {
+        log_notice "UP ('${file_simple_dirname}')..."
+        if dry_run_enabled; then log_dry_run "$DOCKER_COMPOSE_CMD up -d"; else log_info "$($DOCKER_COMPOSE_CMD up -d)"; fi
+    }
+
+    down
 
     case $ACTION in
     backup)
@@ -465,8 +473,7 @@ function perform_action_for_single_docker_compose_container {
         ;;
     esac
 
-    log_notice "UP ('${file_simple_dirname}')..."
-    if dry_run_enabled; then log_dry_run "$DOCKER_COMPOSE_CMD up -d"; else log_info "$($DOCKER_COMPOSE_CMD up -d)"; fi
+    up
 
     log_delimiter_end 3 "'${ACTION}'"
     log_delimiter_end 2 "'${file}'"
@@ -501,34 +508,39 @@ function perform_action_for_all_docker_compose_containers {
 
 # Performs a cleanup of the Docker resources
 function cleanup {
+    function process_preview {
+        log_delimiter_start 2 "PREVIEW"
+
+        log_notice "Listing non-running containers..."
+        log_info "$(docker ps -a --filter status=created --filter status=restarting --filter status=paused --filter status=exited --filter status=dead)"
+
+        log_notice "Listing unused docker images..."
+        log_info "$(docker image ls -a --filter dangling=true)"
+
+        log_notice "Listing unused volumes..."
+        log_info "$(docker volume ls --filter dangling=true)"
+
+        log_delimiter_end 2 "PREVIEW"
+    }
+
+    function process_clean {
+        log_delimiter_start 2 "CLEAN"
+
+        log_notice "Removing non-running containers..."
+        if dry_run_enabled; then log_dry_run "docker container prune -f"; else log_info "$(docker container prune -f)"; fi
+
+        log_notice "Removing unused docker images..."
+        if dry_run_enabled; then log_dry_run "docker image prune -f"; else log_info "$(docker image prune -f)"; fi
+
+        log_notice "Removing unused volumes..."
+        if dry_run_enabled; then log_dry_run "docker volume prune -f"; else log_info "$(docker volume prune -f)"; fi
+
+        log_delimiter_end 2 "CLEAN"
+    }
+
     log_delimiter_start 1 "CLEANUP"
-
-    log_delimiter_start 2 "PREVIEW"
-
-    log_notice "Listing non-running containers..."
-    log_info "$(docker ps -a --filter status=created --filter status=restarting --filter status=paused --filter status=exited --filter status=dead)"
-
-    log_notice "Listing unused docker images..."
-    log_info "$(docker image ls -a --filter dangling=true)"
-
-    log_notice "Listing unused volumes..."
-    log_info "$(docker volume ls --filter dangling=true)"
-
-    log_delimiter_end 2 "PREVIEW"
-
-    log_delimiter_start 2 "CLEAN"
-
-    log_notice "Removing non-running containers..."
-    if dry_run_enabled; then log_dry_run "docker container prune -f"; else log_info "$(docker container prune -f)"; fi
-
-    log_notice "Removing unused docker images..."
-    if dry_run_enabled; then log_dry_run "docker image prune -f"; else log_info "$(docker image prune -f)"; fi
-
-    log_notice "Removing unused volumes..."
-    if dry_run_enabled; then log_dry_run "docker volume prune -f"; else log_info "$(docker volume prune -f)"; fi
-
-    log_delimiter_end 2 "CLEAN"
-
+    process_preview
+    process_clean
     log_delimiter_end 1 "CLEANUP"
 }
 
