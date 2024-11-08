@@ -3,6 +3,14 @@
 # DESCRIPTION:
 # This script simplifies your Docker Compose management.
 
+# ░░░░░░░░░░░░░░░░░░░░░▓▓▓░░░░░░░░░░░░░░░░░░░░░░
+# ░░                                          ░░
+# ░░                                          ░░
+# ░░             SOURCING HELPER              ░░
+# ░░                                          ░░
+# ░░                                          ░░
+# ░░░░░░░░░░░░░░░░░░░░░▓▓▓░░░░░░░░░░░░░░░░░░░░░░
+
 function find_bin_script {
     local script_name="$1"
     local bin_paths=(
@@ -46,6 +54,14 @@ function source_bin_script {
             return 1
         }
 }
+
+# ░░░░░░░░░░░░░░░░░░░░░▓▓▓░░░░░░░░░░░░░░░░░░░░░░
+# ░░                                          ░░
+# ░░                                          ░░
+# ░░             LOGGING HELPER               ░░
+# ░░                                          ░░
+# ░░                                          ░░
+# ░░░░░░░░░░░░░░░░░░░░░▓▓▓░░░░░░░░░░░░░░░░░░░░░░
 
 LOGGER="simbashlog"
 
@@ -120,9 +136,13 @@ function log_delimiter_end {
     log_delimiter "$1" "$2" "<" false
 }
 
-# # # # # # # # # # # #|# # # # # # # # # # # #
-#                 PREPARATIONS                #
-# # # # # # # # # # # #|# # # # # # # # # # # #
+# ░░░░░░░░░░░░░░░░░░░░░▓▓▓░░░░░░░░░░░░░░░░░░░░░░
+# ░░                                          ░░
+# ░░                                          ░░
+# ░░              PREPARATIONS                ░░
+# ░░                                          ░░
+# ░░                                          ░░
+# ░░░░░░░░░░░░░░░░░░░░░▓▓▓░░░░░░░░░░░░░░░░░░░░░░
 
 # Checks whether the user has root rights and if not, whether he is at least added to the 'docker' group.
 function check_permissions {
@@ -165,9 +185,13 @@ DOCKER_COMPOSE_CMD=$(get_docker_compose_command)
 log_debug "'${DOCKER_COMPOSE_CMD}' is used"
 validate_docker_compose_command
 
-# # # # # # # # # # # #|# # # # # # # # # # # #
-#                   GETOPTS                   #
-# # # # # # # # # # # #|# # # # # # # # # # # #
+# ░░░░░░░░░░░░░░░░░░░░░▓▓▓░░░░░░░░░░░░░░░░░░░░░░
+# ░░                                          ░░
+# ░░                                          ░░
+# ░░                ARGUMENTS                 ░░
+# ░░                                          ░░
+# ░░                                          ░░
+# ░░░░░░░░░░░░░░░░░░░░░▓▓▓░░░░░░░░░░░░░░░░░░░░░░
 
 DEFAULT_ACTION="backup"
 DEFAULT_SEARCH_DIR="/home/"
@@ -237,9 +261,13 @@ while getopts ":hdna:s:b:e:c" opt; do
 done
 shift $((OPTIND - 1))
 
-# # # # # # # # # # # #|# # # # # # # # # # # #
-#                  FUNCTIONS                  #
-# # # # # # # # # # # #|# # # # # # # # # # # #
+# ░░░░░░░░░░░░░░░░░░░░░▓▓▓░░░░░░░░░░░░░░░░░░░░░░
+# ░░                                          ░░
+# ░░                                          ░░
+# ░░                FUNCTIONS                 ░░
+# ░░                                          ░░
+# ░░                                          ░░
+# ░░░░░░░░░░░░░░░░░░░░░▓▓▓░░░░░░░░░░░░░░░░░░░░░░
 
 # Validation of the search dir and adjustments (absolute path) if necessary.
 function validate_search_dir {
@@ -507,9 +535,13 @@ function cleanup {
     log_delimiter_end 1 "CLEANUP"
 }
 
-# # # # # # # # # # # #|# # # # # # # # # # # #
-#                    LOGIC                    #
-# # # # # # # # # # # #|# # # # # # # # # # # #
+# ░░░░░░░░░░░░░░░░░░░░░▓▓▓░░░░░░░░░░░░░░░░░░░░░░
+# ░░                                          ░░
+# ░░                                          ░░
+# ░░                  MAIN                    ░░
+# ░░                                          ░░
+# ░░                                          ░░
+# ░░░░░░░░░░░░░░░░░░░░░▓▓▓░░░░░░░░░░░░░░░░░░░░░░
 
 log_notice "'$CONST_SIMPLE_SCRIPT_NAME_WITHOUT_FILE_EXTENSION' has started."
 
