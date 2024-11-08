@@ -3,7 +3,7 @@
 # DESCRIPTION:
 # This script simplifies your Docker Compose management.
 
-function source_bin_script {
+function find_bin_script {
     local script_name="$1"
     local bin_paths=(
         "/bin"
@@ -20,30 +20,31 @@ function source_bin_script {
             original_path=$(readlink -f "$path")
 
             if [ -f "$original_path" ]; then
-                # shellcheck source=/dev/null
-                source "$original_path" ||
-                    {
-                        echo "Error: Unable to source symlinked script '$original_path'"
-                        return 1
-                    }
+                echo "$original_path"
                 return 0
-            else
-                echo "Error: Unable to source symlinked script '$script_name' because the original file '$original_path' was not found."
-                return 1
             fi
         elif [ -f "$path" ]; then
-            # shellcheck source=/dev/null
-            source "$path" ||
-                {
-                    echo "Error: Unable to source script '$path'"
-                    return 1
-                }
+            echo "$path"
             return 0
         fi
     done
 
-    echo "Error: Unable to source '$script_name' because it was not found in the specified bin paths (${bin_paths[*]// /, })."
+    echo "Error: '$script_name' not found in the specified bin paths (${bin_paths[*]// /, })." >&2
     return 1
+}
+
+function source_bin_script {
+    local script_name="$1"
+    local script_path
+
+    script_path=$(find_bin_script "$script_name") || return 1
+
+    # shellcheck source=/dev/null
+    source "$script_path" ||
+        {
+            echo "Error: Unable to source script '$script_path'"
+            return 1
+        }
 }
 
 LOGGER="simbashlog"
