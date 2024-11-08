@@ -355,6 +355,29 @@ function check_file_creation {
     fi
 }
 
+function prepare_backup_dir {
+    local original_backup_dir="$1"
+
+    if [[ "${original_backup_dir: -1}" != "/" ]]; then
+        original_backup_dir="${original_backup_dir}/"
+        log_warn "Backup directory path changed to '${original_backup_dir}'"
+    fi
+
+    local final_backup_dir
+    final_backup_dir="${original_backup_dir}$(date +"%Y-%m-%d")/"
+
+    if [[ ! -d "$final_backup_dir" ]]; then
+        if dry_run_enabled; then
+            log_dry_run "mkdir -p $final_backup_dir"
+        else
+            mkdir -p "$final_backup_dir" || log_error "Backup directory '$(realpath "$final_backup_dir")' could not be created"
+            log_notice "Backup directory '$(realpath "$final_backup_dir")' was created"
+        fi
+    fi
+
+    BACKUP_DIR="$final_backup_dir"
+}
+
 # Creates a backup of a Docker Compose project folder by packing the files into a tar archive and then compressing them.
 function create_backup_file_for_single_docker_compose_project {
     local file=$1
@@ -365,33 +388,19 @@ function create_backup_file_for_single_docker_compose_project {
     local file_simple_dirname
     file_simple_dirname=$(basename "$(dirname "$file")")
 
-    debug_file_info "Backup Docker Compose folder" "$file" "$file_dir" "$file_simple_dirname"
+    debug_file_info "Backup Docker Compose project folder" "$file" "$file_dir" "$file_simple_dirname"
 
-    local tmp_backup_dir="${BACKUP_DIR}"
-
-    if [[ "${BACKUP_DIR: -1}" != "/" ]]; then
-        BACKUP_DIR="${BACKUP_DIR}/"
-        log_warn "BACKUP_DIR: '${tmp_backup_dir}' changed to '${BACKUP_DIR}'"
-    fi
-
-    BACKUP_DIR="${BACKUP_DIR}$(date +"%Y-%m-%d")/"
-
-    if [[ ! -d "$BACKUP_DIR" ]]; then
-        if dry_run_enabled; then
-            log_dry_run "mkdir -p $BACKUP_DIR"
-        else
-            mkdir -p "$BACKUP_DIR"
-            log_notice "Backup directory '$(realpath "$BACKUP_DIR")' was created"
-        fi
-    fi
+    final_backup_dir="$BACKUP_DIR"
 
     local tar_file
     tar_file="$(date +"%Y-%m-%d_%H-%M-%S")_backup_${file_simple_dirname}.tar"
 
     local gz_file="${tar_file}.gz"
 
-    local tar_file_with_backup_dir="${BACKUP_DIR}${tar_file}"
-    local gz_file_with_backup_dir="${BACKUP_DIR}${gz_file}"
+    local tar_file_with_backup_dir="${final_backup_dir}${tar_file}"
+    local gz_file_with_backup_dir="${final_backup_dir}${gz_file}"
+
+    log_message_part_for_undoing_file_creations="Skipping further backup actions and undoing file creations."
 
     log_notice "TAR..."
     if dry_run_enabled; then
@@ -399,7 +408,7 @@ function create_backup_file_for_single_docker_compose_project {
     else
         tar -cpf "$tar_file_with_backup_dir" -C "$file_dir" . ||
             {
-                log_warn "Problem while creating the tar file '${tar_file_with_backup_dir}'. Skipping further backup actions and undoing file creations."
+                log_warn "Problem while creating the tar file '${tar_file_with_backup_dir}'. $log_message_part_for_undoing_file_creations"
                 rm -f "$tar_file_with_backup_dir"
                 return
             }
@@ -412,19 +421,15 @@ function create_backup_file_for_single_docker_compose_project {
     else
         gzip "$tar_file_with_backup_dir" ||
             {
-                log_warn "Problem while compressing the tar file '${tar_file_with_backup_dir}'. Skipping further backup actions and undoing file creations."
+                log_warn "Problem while compressing the tar file '${tar_file_with_backup_dir}'. $log_message_part_for_undoing_file_creations"
                 rm -f "$tar_file_with_backup_dir" "$gz_file_with_backup_dir"
                 return
             }
     fi
-
     check_file_creation "$gz_file_with_backup_dir"
 
-    log_notice "'${BACKUP_DIR}'..."
-    if dry_run_enabled; then log_dry_run "ls -larth $BACKUP_DIR"; else log_info "$(ls -larth "$BACKUP_DIR")"; fi
-
     log_notice "--> Backup created. You can download '${gz_file_with_backup_dir}' e.g. with FileZilla."
-    log_notice "--> To navigate to the backup folder: 'cd ${BACKUP_DIR}'"
+    log_notice "--> To navigate to the backup folder: 'cd ${final_backup_dir}'"
     log_notice "--> To move the file: '(sudo) mv ${gz_file} /my/dir/for/${DOCKER_COMPOSE_NAME}-projects/${file_simple_dirname}/'"
     log_notice "--> To undo gzip: '(sudo) gunzip ${gz_file}'"
     log_notice "--> To unpack the tar file: '(sudo) tar -xpf ${tar_file}'"
@@ -446,8 +451,6 @@ function backup_single_docker_compose_project {
     cd "${file_dir}" || log_error "Failed to change directory to '${file_dir}'"
     log_notice "Changed directory to '$(pwd)'"
 
-    log_delimiter_start 3 "'${ACTION}'"
-
     function down {
         log_notice "DOWN ('${file_simple_dirname}')..."
         if dry_run_enabled; then log_dry_run "$DOCKER_COMPOSE_CMD down"; else log_info "$($DOCKER_COMPOSE_CMD down)"; fi
@@ -462,27 +465,31 @@ function backup_single_docker_compose_project {
     create_backup_file_for_single_docker_compose_project "$file"
     up
 
-    log_delimiter_end 3 "'${ACTION}'"
     log_delimiter_end 2 "'${file}'"
 }
 
 function backup_docker_compose_projects {
     log_delimiter_start 1 "BACKUP"
 
-    log_debug "Action selected: '${ACTION}'"
-
     local docker_compose_files
     docker_compose_files=$(find_docker_compose_files)
 
     if [ -z "$docker_compose_files" ]; then
-        log_error "No ${DOCKER_COMPOSE_NAME} files found in '${SEARCH_DIR}'. Cannot perform action."
+        log_error "No ${DOCKER_COMPOSE_NAME} files found in '${SEARCH_DIR}'. Cannot perform backup."
     else
         log_notice "${DOCKER_COMPOSE_NAME} files: "$'\n'"${docker_compose_files}"
     fi
 
+    prepare_backup_dir "$BACKUP_DIR"
+
     while IFS= read -r file; do
         backup_single_docker_compose_project "$file"
     done <<<"$docker_compose_files"
+
+    local final_backup_dir="$BACKUP_DIR"
+
+    log_notice "'${final_backup_dir}'..."
+    if dry_run_enabled; then log_dry_run "ls -larth $final_backup_dir"; else log_info "$(ls -larth "$final_backup_dir")"; fi
 
     log_delimiter_end 1 "BACKUP"
 }
