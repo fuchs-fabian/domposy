@@ -266,6 +266,10 @@ shift $((OPTIND - 1))
 # ░░                                          ░░
 # ░░░░░░░░░░░░░░░░░░░░░▓▓▓░░░░░░░░░░░░░░░░░░░░░░
 
+function dry_run_enabled {
+    is_true "$ENABLE_DRY_RUN"
+}
+
 # Validation of the search dir and adjustments (absolute path) if necessary.
 function validate_search_dir {
     if [[ "${SEARCH_DIR: -1}" != "/" ]]; then
@@ -346,14 +350,14 @@ function check_file_creation {
 
     debug_file_info "Check file creation" "$file"
 
-    if [[ "$ENABLE_DRY_RUN" == false ]]; then
+    if dry_run_enabled; then
+        log_dry_run "ls -larth $file"
+    else
         if [[ -f "$file" ]]; then
             log_notice "File created: '$file'"
         else
             log_error "File creation failed: '$file'"
         fi
-    else
-        log_dry_run "-f $file"
     fi
 }
 
@@ -379,11 +383,11 @@ function backup_docker_compose_folder {
     BACKUP_DIR="${BACKUP_DIR}$(date +"%Y-%m-%d")/"
 
     if [[ ! -d "$BACKUP_DIR" ]]; then
-        if [[ "$ENABLE_DRY_RUN" == false ]]; then
+        if dry_run_enabled; then
+            log_dry_run "mkdir -p $BACKUP_DIR"
+        else
             mkdir -p "$BACKUP_DIR"
             log_notice "Backup directory '$(realpath "$BACKUP_DIR")' was created"
-        else
-            log_dry_run "mkdir -p $BACKUP_DIR"
         fi
     fi
 
@@ -396,37 +400,34 @@ function backup_docker_compose_folder {
     local gz_file_with_backup_dir="${BACKUP_DIR}${gz_file}"
 
     log_notice "TAR..."
-    if [[ "$ENABLE_DRY_RUN" == false ]]; then
+    if dry_run_enabled; then
+        log_dry_run "tar -cpf $tar_file_with_backup_dir -C $file_dir ."
+    else
         tar -cpf "$tar_file_with_backup_dir" -C "$file_dir" . ||
             {
                 log_warn "Problem while creating the tar file '${tar_file_with_backup_dir}'. Skipping further backup actions and undoing file creations."
                 rm -f "$tar_file_with_backup_dir"
                 return
             }
-    else
-        log_dry_run "tar -cpf $tar_file_with_backup_dir -C $file_dir ."
     fi
     check_file_creation "$tar_file_with_backup_dir"
 
     log_notice "GZIP..."
-    if [[ "$ENABLE_DRY_RUN" == false ]]; then
+    if dry_run_enabled; then
+        log_dry_run "gzip $tar_file_with_backup_dir"
+    else
         gzip "$tar_file_with_backup_dir" ||
             {
                 log_warn "Problem while compressing the tar file '${tar_file_with_backup_dir}'. Skipping further backup actions and undoing file creations."
                 rm -f "$tar_file_with_backup_dir" "$gz_file_with_backup_dir"
                 return
             }
-    else
-        log_dry_run "gzip $tar_file_with_backup_dir"
     fi
+
     check_file_creation "$gz_file_with_backup_dir"
 
     log_notice "'${BACKUP_DIR}'..."
-    if [[ "$ENABLE_DRY_RUN" == false ]]; then
-        log_info "$(ls -larth "${BACKUP_DIR}")"
-    else
-        log_dry_run "ls -larth $BACKUP_DIR"
-    fi
+    if dry_run_enabled; then log_dry_run "ls -larth $BACKUP_DIR"; else log_info "$(ls -larth "$BACKUP_DIR")"; fi
 
     log_notice "[-->] Backup created. You can download '${gz_file_with_backup_dir}' e.g. with FileZilla."
     log_notice "[-->] To navigate to the backup folder: 'cd ${BACKUP_DIR}'"
@@ -456,11 +457,7 @@ function perform_action_for_single_docker_compose_container {
     log_delimiter_start 3 "'${ACTION}'"
 
     log_notice "DOWN ('${file_simple_dirname}')..."
-    if [[ "$ENABLE_DRY_RUN" == false ]]; then
-        log_info "$($DOCKER_COMPOSE_CMD down)"
-    else
-        log_dry_run "$DOCKER_COMPOSE_CMD down"
-    fi
+    if dry_run_enabled; then log_dry_run "$DOCKER_COMPOSE_CMD down"; else log_info "$($DOCKER_COMPOSE_CMD down)"; fi
 
     case $ACTION in
     backup)
@@ -469,11 +466,7 @@ function perform_action_for_single_docker_compose_container {
     esac
 
     log_notice "UP ('${file_simple_dirname}')..."
-    if [[ "$ENABLE_DRY_RUN" == false ]]; then
-        log_info "$($DOCKER_COMPOSE_CMD up -d)"
-    else
-        log_dry_run "$DOCKER_COMPOSE_CMD up -d"
-    fi
+    if dry_run_enabled; then log_dry_run "$DOCKER_COMPOSE_CMD up -d"; else log_info "$($DOCKER_COMPOSE_CMD up -d)"; fi
 
     log_delimiter_end 3 "'${ACTION}'"
     log_delimiter_end 2 "'${file}'"
@@ -511,6 +504,7 @@ function cleanup {
     log_delimiter_start 1 "CLEANUP"
 
     log_delimiter_start 2 "PREVIEW"
+
     log_notice "Listing non-running containers..."
     log_info "$(docker ps -a --filter status=created --filter status=restarting --filter status=paused --filter status=exited --filter status=dead)"
 
@@ -519,29 +513,20 @@ function cleanup {
 
     log_notice "Listing unused volumes..."
     log_info "$(docker volume ls --filter dangling=true)"
+
     log_delimiter_end 2 "PREVIEW"
 
     log_delimiter_start 2 "CLEAN"
+
     log_notice "Removing non-running containers..."
-    if [[ "$ENABLE_DRY_RUN" == false ]]; then
-        log_info "$(docker container prune -f)"
-    else
-        log_dry_run "docker container prune -f"
-    fi
+    if dry_run_enabled; then log_dry_run "docker container prune -f"; else log_info "$(docker container prune -f)"; fi
 
     log_notice "Removing unused docker images..."
-    if [[ "$ENABLE_DRY_RUN" == false ]]; then
-        log_info "$(docker image prune -f)"
-    else
-        log_dry_run "docker image prune -f"
-    fi
+    if dry_run_enabled; then log_dry_run "docker image prune -f"; else log_info "$(docker image prune -f)"; fi
 
     log_notice "Removing unused volumes..."
-    if [[ "$ENABLE_DRY_RUN" == false ]]; then
-        log_info "$(docker volume prune -f)"
-    else
-        log_dry_run "docker volume prune -f"
-    fi
+    if dry_run_enabled; then log_dry_run "docker volume prune -f"; else log_info "$(docker volume prune -f)"; fi
+
     log_delimiter_end 2 "CLEAN"
 
     log_delimiter_end 1 "CLEANUP"
@@ -557,9 +542,7 @@ function cleanup {
 
 log_notice "'$CONST_SIMPLE_SCRIPT_NAME_WITHOUT_FILE_EXTENSION' has started."
 
-if $ENABLE_DRY_RUN; then
-    log_warn "Dry run is enabled!"
-fi
+if dry_run_enabled; then log_warn "Dry run is enabled!"; fi
 
 validate_search_dir
 
