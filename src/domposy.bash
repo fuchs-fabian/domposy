@@ -201,9 +201,8 @@ BACKUP_DIR="${DEFAULT_BACKUP_DIR}"
 EXCLUDE_DIR="${DEFAULT_EXCLUDE_DIR}"
 
 ENABLE_DRY_RUN=false
-ENABLE_CLEANUP=false
 
-while getopts ":hdna:s:b:e:c" opt; do
+while getopts ":hdna:s:b:e" opt; do
     case ${opt} in
     h)
         echo "It is recommended to run the script with root rights to ensure that the backups work properly."
@@ -212,11 +211,10 @@ while getopts ":hdna:s:b:e:c" opt; do
         echo "  -h                 Show help"
         echo "  -d                 Enables debug logging"
         echo "  -n                 Executes a dry run, i.e. no changes are made to the file system with the exception of logging"
-        echo "  -a ACTION          ACTION to be performed: 'backup' (Default: '${DEFAULT_ACTION}')"
+        echo "  -a ACTION          ACTION to be performed: 'backup' or 'clean' (Default: '${DEFAULT_ACTION}')"
         echo "  -s SEARCH_DIR      Directory to search for ${DOCKER_COMPOSE_NAME} files (Default: '${DEFAULT_SEARCH_DIR}')"
         echo "  -b BACKUP_DIR      Destination directory for backups (Default: '${DEFAULT_BACKUP_DIR}')"
         echo "  -e EXCLUDE_DIR     Directory to exclude from search (Default: '${DEFAULT_EXCLUDE_DIR}')"
-        echo "  -c                 Additional docker cleanup"
         exit 0
         ;;
     d)
@@ -243,10 +241,6 @@ while getopts ":hdna:s:b:e:c" opt; do
     e)
         log_debug "'-e' selected: '$OPTARG'"
         EXCLUDE_DIR="${OPTARG}"
-        ;;
-    c)
-        log_debug "'-c' selected"
-        ENABLE_CLEANUP=true
         ;;
     \?)
         log_error "Invalid option: -$OPTARG"
@@ -361,8 +355,8 @@ function check_file_creation {
     fi
 }
 
-# Creates a backup of a Docker Compose folder by packing the files into a tar archive and then compressing them.
-function backup_docker_compose_folder {
+# Creates a backup of a Docker Compose project folder by packing the files into a tar archive and then compressing them.
+function create_backup_file_for_single_docker_compose_project {
     local file=$1
 
     local file_dir
@@ -431,13 +425,12 @@ function backup_docker_compose_folder {
 
     log_notice "--> Backup created. You can download '${gz_file_with_backup_dir}' e.g. with FileZilla."
     log_notice "--> To navigate to the backup folder: 'cd ${BACKUP_DIR}'"
-    log_notice "--> To move the file: '(sudo) mv ${gz_file} /my/dir/for/${DOCKER_COMPOSE_NAME}-containers/${file_simple_dirname}/'"
+    log_notice "--> To move the file: '(sudo) mv ${gz_file} /my/dir/for/${DOCKER_COMPOSE_NAME}-projects/${file_simple_dirname}/'"
     log_notice "--> To undo gzip: '(sudo) gunzip ${gz_file}'"
     log_notice "--> To unpack the tar file: '(sudo) tar -xpf ${tar_file}'"
 }
 
-# Performs a specific action for a Docker Compose configuration file.
-function perform_action_for_single_docker_compose_container {
+function backup_single_docker_compose_project {
     local file=$1
 
     local file_dir
@@ -446,7 +439,7 @@ function perform_action_for_single_docker_compose_container {
     local file_simple_dirname
     file_simple_dirname=$(basename "$(dirname "$file")")
 
-    debug_file_info "Perform action for single Docker Compose container" "$file" "$file_dir" "$file_simple_dirname"
+    debug_file_info "Perform action for single Docker Compose project" "$file" "$file_dir" "$file_simple_dirname"
 
     log_delimiter_start 2 "'${file}'"
 
@@ -466,48 +459,35 @@ function perform_action_for_single_docker_compose_container {
     }
 
     down
-
-    case $ACTION in
-    backup)
-        backup_docker_compose_folder "$file"
-        ;;
-    esac
-
+    create_backup_file_for_single_docker_compose_project "$file"
     up
 
     log_delimiter_end 3 "'${ACTION}'"
     log_delimiter_end 2 "'${file}'"
 }
 
-# Performs a specified action for all Docker Compose files in a search directory.
-function perform_action_for_all_docker_compose_containers {
-    log_delimiter_start 1 "DOCKER COMPOSE"
-    case $ACTION in
-    backup)
-        log_debug "Action selected: '${ACTION}'"
+function backup_docker_compose_projects {
+    log_delimiter_start 1 "BACKUP"
 
-        local docker_compose_files
-        docker_compose_files=$(find_docker_compose_files)
+    log_debug "Action selected: '${ACTION}'"
 
-        if [ -z "$docker_compose_files" ]; then
-            log_error "No ${DOCKER_COMPOSE_NAME} files found in '${SEARCH_DIR}'. Cannot perform action."
-        else
-            log_notice "${DOCKER_COMPOSE_NAME} files: "$'\n'"${docker_compose_files}"
-        fi
+    local docker_compose_files
+    docker_compose_files=$(find_docker_compose_files)
 
-        while IFS= read -r file; do
-            perform_action_for_single_docker_compose_container "$file"
-        done <<<"$docker_compose_files"
-        ;;
-    *)
-        log_error "Invalid action: '${ACTION}'"
-        ;;
-    esac
-    log_delimiter_end 1 "DOCKER COMPOSE"
+    if [ -z "$docker_compose_files" ]; then
+        log_error "No ${DOCKER_COMPOSE_NAME} files found in '${SEARCH_DIR}'. Cannot perform action."
+    else
+        log_notice "${DOCKER_COMPOSE_NAME} files: "$'\n'"${docker_compose_files}"
+    fi
+
+    while IFS= read -r file; do
+        backup_single_docker_compose_project "$file"
+    done <<<"$docker_compose_files"
+
+    log_delimiter_end 1 "BACKUP"
 }
 
-# Performs a cleanup of the Docker resources
-function cleanup {
+function clean_docker_environment {
     function process_preview {
         log_delimiter_start 2 "PREVIEW"
 
@@ -523,8 +503,8 @@ function cleanup {
         log_delimiter_end 2 "PREVIEW"
     }
 
-    function process_clean {
-        log_delimiter_start 2 "CLEAN"
+    function process_remove {
+        log_delimiter_start 2 "REMOVE"
 
         log_notice "Removing non-running containers..."
         if dry_run_enabled; then log_dry_run "docker container prune -f"; else log_info "$(docker container prune -f)"; fi
@@ -535,13 +515,28 @@ function cleanup {
         log_notice "Removing unused volumes..."
         if dry_run_enabled; then log_dry_run "docker volume prune -f"; else log_info "$(docker volume prune -f)"; fi
 
-        log_delimiter_end 2 "CLEAN"
+        log_delimiter_end 2 "REMOVE"
     }
 
-    log_delimiter_start 1 "CLEANUP"
+    log_delimiter_start 1 "CLEAN"
     process_preview
-    process_clean
-    log_delimiter_end 1 "CLEANUP"
+    process_remove
+    log_delimiter_end 1 "CLEAN"
+}
+
+function perform_action {
+    log_debug "Action selected: '${ACTION}'"
+    case $ACTION in
+    backup)
+        backup_docker_compose_projects
+        ;;
+    clean)
+        clean_docker_environment
+        ;;
+    *)
+        log_error "Invalid action: '${ACTION}'"
+        ;;
+    esac
 }
 
 # ░░░░░░░░░░░░░░░░░░░░░▓▓▓░░░░░░░░░░░░░░░░░░░░░░
@@ -557,19 +552,11 @@ log_notice "'$CONST_SIMPLE_SCRIPT_NAME_WITHOUT_FILE_EXTENSION' has started."
 if dry_run_enabled; then log_warn "Dry run is enabled!"; fi
 
 validate_search_dir
-
 log_notice "Current directory: '$(pwd)'"
 
 get_vars
-
 show_docker_info
-
-perform_action_for_all_docker_compose_containers
-
-if $ENABLE_CLEANUP; then
-    cleanup
-fi
-
+perform_action
 show_docker_info
 
 exit 0
