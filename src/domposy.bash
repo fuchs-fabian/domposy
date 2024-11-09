@@ -500,9 +500,9 @@ function backup_single_docker_compose_project {
     local is_running=false
     if $DOCKER_COMPOSE_CMD ps | grep -q "Up"; then
         is_running=true
-        log_debug "Docker-Compose project is currently running"
+        log_debug "Docker-Compose project '${file}' is currently running"
     else
-        log_debug "Docker-Compose project is not running"
+        log_debug "Docker-Compose project '${file}' is not running"
     fi
 
     if $is_running; then down; else log_notice "Skip 'down' because it is not running"; fi
