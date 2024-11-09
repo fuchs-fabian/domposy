@@ -67,7 +67,7 @@ LOGGER="simbashlog"
 
 source_bin_script "$LOGGER" ||
     {
-        echo "Critical: Unable resolve logger script '$LOGGER'. Exiting..."
+        echo "Critical: Unable to resolve logger script '$LOGGER'. Exiting..."
         exit 1
     }
 
