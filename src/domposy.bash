@@ -89,7 +89,7 @@ ENABLE_EXITING_SCRIPT_IF_AT_LEAST_ERROR_IS_LOGGED=true
 # shellcheck disable=SC2034
 ENABLE_DATE_IN_CONSOLE_OUTPUTS_FOR_LOGGING=true
 # shellcheck disable=SC2034
-SHOW_CURRENT_SCRIPT_NAME_IN_CONSOLE_OUTPUTS_FOR_LOGGING="path"
+SHOW_CURRENT_SCRIPT_NAME_IN_CONSOLE_OUTPUTS_FOR_LOGGING="simple_without_file_extension"
 # shellcheck disable=SC2034
 ENABLE_PARENT_SCRIPT_NAME_IN_CONSOLE_OUTPUTS_FOR_LOGGING=false
 # shellcheck disable=SC2034
@@ -101,7 +101,7 @@ function log_debug_var {
 }
 
 function log_dry_run {
-    log_info "Dry run is enabled. Skipping '$1'"
+    log_notice "Dry run is enabled. Skipping '$1'"
 }
 
 function log_delimiter {
@@ -310,7 +310,7 @@ function prepare_search_dir {
     absolute_search_dir=$(realpath "$search_dir")
 
     if is_var_not_equal "$search_dir" "$absolute_search_dir"; then
-        log_notice "Replace search directory '${search_dir}' with the absolute path '${absolute_search_dir}'..."
+        log_info "Replace search directory '${search_dir}' with the absolute path '${absolute_search_dir}'..."
         search_dir="$absolute_search_dir"
     fi
 
@@ -339,7 +339,7 @@ function prepare_backup_dir {
     absolute_backup_dir=$(realpath "$final_backup_dir")
 
     if is_var_not_equal "$final_backup_dir" "$absolute_backup_dir"; then
-        log_notice "Replace backup directory '${final_backup_dir}' with the absolute path '${absolute_backup_dir}'..."
+        log_info "Replace backup directory '${final_backup_dir}' with the absolute path '${absolute_backup_dir}'..."
         final_backup_dir="$absolute_backup_dir"
     fi
 
@@ -355,17 +355,17 @@ function prepare_backup_dir {
 
 function show_docker_info {
     log_delimiter_start 1 "DOCKER INFO"
-    log_notice "docker system df..."
-    log_info "$(docker system df)"
+    log_info "docker system df..."
+    log_notice "$(docker system df)"
 
-    log_notice "docker ps..."
-    log_info "$(docker ps)"
+    log_info "docker ps..."
+    log_notice "$(docker ps)"
 
-    log_notice "docker info (formatted)..."
-    log_info "$(docker info --format "Containers: {{.Containers}} | Running: {{.ContainersRunning}} | Paused: {{.ContainersPaused}} | Stopped: {{.ContainersStopped}} | Images: {{.Images}} | Docker Root Dir: {{.DockerRootDir}}")"
+    log_info "docker info (formatted)..."
+    log_notice "$(docker info --format "Containers: {{.Containers}} | Running: {{.ContainersRunning}} | Paused: {{.ContainersPaused}} | Stopped: {{.ContainersStopped}} | Images: {{.Images}} | Docker Root Dir: {{.DockerRootDir}}")"
 
-    log_notice "docker images..."
-    log_info "$(docker images)"
+    log_info "docker images..."
+    log_notice "$(docker images)"
     log_delimiter_end 1 "DOCKER INFO"
 }
 
@@ -437,7 +437,7 @@ function create_backup_file_for_single_docker_compose_project {
 
     log_message_part_for_undoing_file_creations="Skipping further backup actions and undoing file creations."
 
-    log_notice "TAR..."
+    log_info "TAR..."
     if dry_run_enabled; then
         log_dry_run "tar -cpf $tar_file_with_backup_dir -C $file_dir ."
     else
@@ -450,7 +450,7 @@ function create_backup_file_for_single_docker_compose_project {
     fi
     check_file_creation "$tar_file_with_backup_dir"
 
-    log_notice "GZIP..."
+    log_info "GZIP..."
     if dry_run_enabled; then
         log_dry_run "gzip $tar_file_with_backup_dir"
     else
@@ -463,11 +463,11 @@ function create_backup_file_for_single_docker_compose_project {
     fi
     check_file_creation "$gz_file_with_backup_dir"
 
-    log_notice "--> Backup created. You can download '${gz_file_with_backup_dir}' e.g. with FileZilla."
-    log_notice "--> To navigate to the backup folder: 'cd ${final_backup_dir}'"
-    log_notice "--> To move the file: '(sudo) mv ${gz_file} /my/dir/for/${DOCKER_COMPOSE_NAME}-projects/${file_simple_dirname}/'"
-    log_notice "--> To undo gzip: '(sudo) gunzip ${gz_file}'"
-    log_notice "--> To unpack the tar file: '(sudo) tar -xpf ${tar_file}'"
+    log_notice "Backup created. You can download '${gz_file_with_backup_dir}' e.g. with FileZilla."
+    log_notice "To navigate to the backup folder: 'cd ${final_backup_dir}'"
+    log_notice "To move the file: '(sudo) mv ${gz_file} /my/dir/for/${DOCKER_COMPOSE_NAME}-projects/${file_simple_dirname}/'"
+    log_notice "To undo gzip: '(sudo) gunzip ${gz_file}'"
+    log_notice "To unpack the tar file: '(sudo) tar -xpf ${tar_file}'"
 }
 
 function backup_single_docker_compose_project {
@@ -488,13 +488,13 @@ function backup_single_docker_compose_project {
     log_notice "Changed directory to '$(pwd)'"
 
     function down {
-        log_notice "DOWN ('${file_simple_dirname}')..."
-        if dry_run_enabled; then log_dry_run "$DOCKER_COMPOSE_CMD down"; else log_info "$($DOCKER_COMPOSE_CMD down)"; fi
+        log_info "DOWN ('${file_simple_dirname}')..."
+        if dry_run_enabled; then log_dry_run "$DOCKER_COMPOSE_CMD down"; else log_notice "$($DOCKER_COMPOSE_CMD down)"; fi
     }
 
     function up {
-        log_notice "UP ('${file_simple_dirname}')..."
-        if dry_run_enabled; then log_dry_run "$DOCKER_COMPOSE_CMD up -d"; else log_info "$($DOCKER_COMPOSE_CMD up -d)"; fi
+        log_info "UP ('${file_simple_dirname}')..."
+        if dry_run_enabled; then log_dry_run "$DOCKER_COMPOSE_CMD up -d"; else log_notice "$($DOCKER_COMPOSE_CMD up -d)"; fi
     }
 
     down
@@ -526,8 +526,8 @@ function backup_docker_compose_projects {
 
     local final_backup_dir="$BACKUP_DIR"
 
-    log_notice "'${final_backup_dir}'..."
-    if dry_run_enabled; then log_dry_run "ls -larth $final_backup_dir"; else log_info "$(ls -larth "$final_backup_dir")"; fi
+    log_info "'${final_backup_dir}'..."
+    if dry_run_enabled; then log_dry_run "ls -larth $final_backup_dir"; else log_notice "$(ls -larth "$final_backup_dir")"; fi
 
     log_delimiter_end 1 "BACKUP"
 }
@@ -542,14 +542,14 @@ function clean_docker_environment {
     function process_preview {
         log_delimiter_start 2 "PREVIEW"
 
-        log_notice "Listing non-running containers..."
-        log_info "$(docker ps -a --filter status=created --filter status=restarting --filter status=paused --filter status=exited --filter status=dead)"
+        log_info "Listing non-running containers..."
+        log_notice "$(docker ps -a --filter status=created --filter status=restarting --filter status=paused --filter status=exited --filter status=dead)"
 
-        log_notice "Listing unused docker images..."
-        log_info "$(docker image ls -a --filter dangling=true)"
+        log_info "Listing unused docker images..."
+        log_notice "$(docker image ls -a --filter dangling=true)"
 
-        log_notice "Listing unused volumes..."
-        log_info "$(docker volume ls --filter dangling=true)"
+        log_info "Listing unused volumes..."
+        log_notice "$(docker volume ls --filter dangling=true)"
 
         log_delimiter_end 2 "PREVIEW"
     }
@@ -558,13 +558,13 @@ function clean_docker_environment {
         log_delimiter_start 2 "REMOVE"
 
         log_notice "Removing non-running containers..."
-        if dry_run_enabled; then log_dry_run "docker container prune -f"; else log_info "$(docker container prune -f)"; fi
+        if dry_run_enabled; then log_dry_run "docker container prune -f"; else log_notice "$(docker container prune -f)"; fi
 
         log_notice "Removing unused docker images..."
-        if dry_run_enabled; then log_dry_run "docker image prune -f"; else log_info "$(docker image prune -f)"; fi
+        if dry_run_enabled; then log_dry_run "docker image prune -f"; else log_notice "$(docker image prune -f)"; fi
 
         log_notice "Removing unused volumes..."
-        if dry_run_enabled; then log_dry_run "docker volume prune -f"; else log_info "$(docker volume prune -f)"; fi
+        if dry_run_enabled; then log_dry_run "docker volume prune -f"; else log_notice "$(docker volume prune -f)"; fi
 
         log_delimiter_end 2 "REMOVE"
     }
@@ -606,7 +606,7 @@ function perform_action {
 # ░░                                          ░░
 # ░░░░░░░░░░░░░░░░░░░░░▓▓▓░░░░░░░░░░░░░░░░░░░░░░
 
-log_notice "'$CONST_SIMPLE_SCRIPT_NAME_WITHOUT_FILE_EXTENSION' has started."
+log_info "'$CONST_SIMPLE_SCRIPT_NAME_WITHOUT_FILE_EXTENSION' has started."
 
 if dry_run_enabled; then log_warn "Dry run is enabled!"; fi
 
