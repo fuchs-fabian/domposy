@@ -74,6 +74,8 @@ source_bin_script "$LOGGER" ||
 # shellcheck disable=SC2034
 ENABLE_LOG_FILE=true
 # shellcheck disable=SC2034
+ENABLE_JSON_LOG_FILE=false
+# shellcheck disable=SC2034
 ENABLE_LOG_TO_SYSTEM=false
 # shellcheck disable=SC2034
 LOG_DIR="/tmp/simbashlogs/"
@@ -215,7 +217,7 @@ while getopts ":hdna:s:b:e" opt; do
         echo "Usage: (sudo) $CONST_SIMPLE_SCRIPT_NAME_WITHOUT_FILE_EXTENSION [-h] [-d] [-n] [-a ACTION] [-s SEARCH_DIR] [-b BACKUP_DIR] [-e EXCLUDE_DIR] [-c]"
         echo "  -h                 Show help"
         echo "  -d                 Enables debug logging"
-        echo "  -n                 Executes a dry run, i.e. no changes are made to the file system with the exception of logging"
+        echo "  -n                 Executes a dry run, i.e. no changes are made to the file system"
         echo "  -a ACTION          ACTION to be performed: 'backup' or 'clean' (Default: '${DEFAULT_ACTION}')"
         echo "  -s SEARCH_DIR      Directory to search for ${DOCKER_COMPOSE_NAME} files (Default: '${DEFAULT_SEARCH_DIR}')"
         echo "  -b BACKUP_DIR      Destination directory for backups (Default: '${DEFAULT_BACKUP_DIR}')"
@@ -230,6 +232,13 @@ while getopts ":hdna:s:b:e" opt; do
     n)
         log_debug "'-n' selected"
         ENABLE_DRY_RUN=true
+
+        # shellcheck disable=SC2034
+        ENABLE_LOG_FILE=false
+        # shellcheck disable=SC2034
+        ENABLE_JSON_LOG_FILE=false
+        # shellcheck disable=SC2034
+        ENABLE_LOG_TO_SYSTEM=false
         ;;
     a)
         log_debug "'-a' selected: '$OPTARG'"
