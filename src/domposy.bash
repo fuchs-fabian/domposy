@@ -376,9 +376,8 @@ function find_docker_compose_files {
 
     for name in "${docker_compose_file_names[@]}"; do
         files=$(find "$SEARCH_DIR" -path "*/${EXCLUDE_DIR}/*" -prune -o -name "$name" -print 2>/dev/null)
-        if [ -n "$files" ]; then
-            docker_compose_files+="$files"$'\n'
-        fi
+
+        if is_var_not_empty "$files"; then docker_compose_files+="$files"$'\n'; fi
     done
     echo "$docker_compose_files"
 }
@@ -390,7 +389,7 @@ function check_file_creation {
     if dry_run_enabled; then
         log_dry_run "ls -larth $file"
     else
-        if [[ -f "$file" ]]; then
+        if file_exists "$file"; then
             log_notice "File created: '$file'"
         else
             log_error "File creation failed: '$file'"
@@ -499,6 +498,8 @@ function backup_single_docker_compose_project {
 function backup_docker_compose_projects {
     log_delimiter_start 1 "BACKUP"
 
+    prepare_search_dir
+
     local docker_compose_files
     docker_compose_files=$(find_docker_compose_files)
 
@@ -508,7 +509,6 @@ function backup_docker_compose_projects {
         log_notice "${DOCKER_COMPOSE_NAME} files: "$'\n'"${docker_compose_files}"
     fi
 
-    prepare_search_dir
     prepare_backup_dir
 
     while IFS= read -r file; do
