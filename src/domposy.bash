@@ -98,6 +98,11 @@ ENABLE_PARENT_SCRIPT_NAME_IN_CONSOLE_OUTPUTS_FOR_LOGGING=false
 # shellcheck disable=SC2034
 ENABLE_SUMMARY_ON_EXIT=true
 
+function log_debug_var {
+    local scope="$1"
+    log_debug "$scope -> $(print_var_with_current_value "$2")"
+}
+
 function log_dry_run {
     log_info "Dry run is enabled. Skipping '$1'"
 }
@@ -350,21 +355,9 @@ function show_docker_info {
 # ║                                            ║
 # ╚═════════════════════╩══════════════════════╝
 
-function debug_file_info {
-    local func_description="$1"
-    local file="$2"
-    local file_dir="$3"
-    local file_simple_dirname="$4"
-
-    [[ -n "$file" ]] && log_debug "(${func_description}) file: '${file}'"
-    [[ -n "$file_dir" ]] && log_debug "(${func_description}) file dir: '${file_dir}'"
-    [[ -n "$file_simple_dirname" ]] && log_debug "(${func_description}) file simple dirname: '${file_simple_dirname}'"
-}
-
 function check_file_creation {
     local file=$1
-
-    debug_file_info "Check file creation" "$file"
+    log_debug_var "check_file_creation" "file"
 
     if dry_run_enabled; then
         log_dry_run "ls -larth $file"
@@ -410,7 +403,9 @@ function create_backup_file_for_single_docker_compose_project {
     local file_simple_dirname
     file_simple_dirname=$(basename "$(dirname "$file")")
 
-    debug_file_info "Backup Docker Compose project folder" "$file" "$file_dir" "$file_simple_dirname"
+    log_debug_var "create_backup_file_for_single_docker_compose_project" "file"
+    log_debug_var "create_backup_file_for_single_docker_compose_project" "file_dir"
+    log_debug_var "create_backup_file_for_single_docker_compose_project" "file_simple_dirname"
 
     final_backup_dir="$BACKUP_DIR"
 
@@ -466,7 +461,9 @@ function backup_single_docker_compose_project {
     local file_simple_dirname
     file_simple_dirname=$(basename "$(dirname "$file")")
 
-    debug_file_info "Perform action for single Docker Compose project" "$file" "$file_dir" "$file_simple_dirname"
+    log_debug_var "backup_single_docker_compose_project" "file"
+    log_debug_var "backup_single_docker_compose_project" "file_dir"
+    log_debug_var "backup_single_docker_compose_project" "file_simple_dirname"
 
     log_delimiter_start 2 "'${file}'"
 
@@ -566,8 +563,10 @@ function clean_docker_environment {
 # ╚═════════════════════╩══════════════════════╝
 
 function perform_action {
-    log_debug "Action selected: '${ACTION}'"
-    case $ACTION in
+    local action=$ACTION
+    log_debug_var "perform_action" "action"
+
+    case $action in
     backup)
         backup_docker_compose_projects
         ;;
@@ -575,7 +574,7 @@ function perform_action {
         clean_docker_environment
         ;;
     *)
-        log_error "Invalid action: '${ACTION}'"
+        log_error "Invalid action: '${action}'"
         ;;
     esac
 }
