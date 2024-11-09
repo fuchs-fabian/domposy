@@ -399,7 +399,7 @@ function check_file_creation {
         log_dry_run "ls -larth $file"
     else
         if file_exists "$file"; then
-            log_notice "File created: '$file'"
+            log_info "File created: '$file'"
         else
             log_error "File creation failed: '$file'"
         fi
@@ -463,11 +463,11 @@ function create_backup_file_for_single_docker_compose_project {
     fi
     check_file_creation "$gz_file_with_backup_dir"
 
-    log_notice "Backup created. You can download '${gz_file_with_backup_dir}' e.g. with FileZilla."
-    log_notice "To navigate to the backup folder: 'cd ${final_backup_dir}'"
-    log_notice "To move the file: '(sudo) mv ${gz_file} /my/dir/for/${DOCKER_COMPOSE_NAME}-projects/${file_simple_dirname}/'"
-    log_notice "To undo gzip: '(sudo) gunzip ${gz_file}'"
-    log_notice "To unpack the tar file: '(sudo) tar -xpf ${tar_file}'"
+    log_notice ">>> Backup created. You can download '${gz_file_with_backup_dir}' e.g. with FileZilla."
+    log_notice ">>> To navigate to the backup folder: 'cd ${final_backup_dir}'"
+    log_notice ">>> To move the file: '(sudo) mv ${gz_file} /my/dir/for/${DOCKER_COMPOSE_NAME}-projects/${file_simple_dirname}/'"
+    log_notice ">>> To undo gzip: '(sudo) gunzip ${gz_file}'"
+    log_notice ">>> To unpack the tar file: '(sudo) tar -xpf ${tar_file}'"
 }
 
 function backup_single_docker_compose_project {
