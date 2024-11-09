@@ -497,9 +497,19 @@ function backup_single_docker_compose_project {
         if dry_run_enabled; then log_dry_run "$DOCKER_COMPOSE_CMD up -d"; else log_notice "$($DOCKER_COMPOSE_CMD up -d)"; fi
     }
 
-    down
+    local is_running=false
+    if $DOCKER_COMPOSE_CMD ps | grep -q "Up"; then
+        is_running=true
+        log_debug "Docker-Compose project is currently running"
+    else
+        log_debug "Docker-Compose project is not running"
+    fi
+
+    if $is_running; then down; else log_notice "Skip 'down' because it is not running"; fi
+
     create_backup_file_for_single_docker_compose_project "$file"
-    up
+
+    if $is_running; then up; else log_notice "Skip 'up' because it was not running"; fi
 
     log_delimiter_end 2 "'${file}'"
 }
