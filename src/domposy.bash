@@ -396,15 +396,14 @@ function find_docker_compose_files {
 # Creates a backup of a Docker Compose project folder by packing the files into a tar archive and then compressing them.
 function create_backup_file_for_single_docker_compose_project {
     local file=$1
+    log_debug_var "create_backup_file_for_single_docker_compose_project" "file"
 
     local file_dir
     file_dir=$(dirname "$file")
+    log_debug_var "create_backup_file_for_single_docker_compose_project" "file_dir"
 
     local file_simple_dirname
     file_simple_dirname=$(basename "$(dirname "$file")")
-
-    log_debug_var "create_backup_file_for_single_docker_compose_project" "file"
-    log_debug_var "create_backup_file_for_single_docker_compose_project" "file_dir"
     log_debug_var "create_backup_file_for_single_docker_compose_project" "file_simple_dirname"
 
     final_backup_dir="$BACKUP_DIR"
@@ -454,15 +453,14 @@ function create_backup_file_for_single_docker_compose_project {
 
 function backup_single_docker_compose_project {
     local file=$1
+    log_debug_var "backup_single_docker_compose_project" "file"
 
     local file_dir
     file_dir=$(dirname "$file")
+    log_debug_var "backup_single_docker_compose_project" "file_dir"
 
     local file_simple_dirname
     file_simple_dirname=$(basename "$(dirname "$file")")
-
-    log_debug_var "backup_single_docker_compose_project" "file"
-    log_debug_var "backup_single_docker_compose_project" "file_dir"
     log_debug_var "backup_single_docker_compose_project" "file_simple_dirname"
 
     log_delimiter_start 2 "'${file}'"
