@@ -355,6 +355,23 @@ function show_docker_info {
 # ║                                            ║
 # ╚═════════════════════╩══════════════════════╝
 
+function find_docker_compose_files {
+    local docker_compose_file_names=(
+        "${DOCKER_COMPOSE_NAME}.yml"
+        "${DOCKER_COMPOSE_NAME}.yaml"
+    )
+
+    local docker_compose_files=""
+
+    for name in "${docker_compose_file_names[@]}"; do
+        files=$(find "$SEARCH_DIR" -path "*/${EXCLUDE_DIR}/*" -prune -o -name "$name" -print 2>/dev/null)
+        if [ -n "$files" ]; then
+            docker_compose_files+="$files"$'\n'
+        fi
+    done
+    echo "$docker_compose_files"
+}
+
 function check_file_creation {
     local file=$1
     log_debug_var "check_file_creation" "file"
@@ -375,23 +392,6 @@ function check_file_creation {
 # ║                  BACKUP                    ║
 # ║                                            ║
 # ╚═════════════════════╩══════════════════════╝
-
-function find_docker_compose_files {
-    local docker_compose_file_names=(
-        "${DOCKER_COMPOSE_NAME}.yml"
-        "${DOCKER_COMPOSE_NAME}.yaml"
-    )
-
-    local docker_compose_files=""
-
-    for name in "${docker_compose_file_names[@]}"; do
-        files=$(find "$SEARCH_DIR" -path "*/${EXCLUDE_DIR}/*" -prune -o -name "$name" -print 2>/dev/null)
-        if [ -n "$files" ]; then
-            docker_compose_files+="$files"$'\n'
-        fi
-    done
-    echo "$docker_compose_files"
-}
 
 # Creates a backup of a Docker Compose project folder by packing the files into a tar archive and then compressing them.
 function create_backup_file_for_single_docker_compose_project {
