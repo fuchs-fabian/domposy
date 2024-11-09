@@ -5,6 +5,16 @@
 
 CONST_DOMPOSY_VERSION="2.0.0"
 
+DEFAULT_ACTION="backup"
+DEFAULT_SEARCH_DIR="/home/"
+DEFAULT_BACKUP_DIR="/tmp/${CONST_SIMPLE_SCRIPT_NAME_WITHOUT_FILE_EXTENSION}_backups/"
+DEFAULT_EXCLUDE_DIR="tmp"
+
+ENABLE_DRY_RUN=false
+
+DOCKER_COMPOSE_NAME="docker-compose"
+DOCKER_COMPOSE_CMD=""
+
 # ░░░░░░░░░░░░░░░░░░░░░▓▓▓░░░░░░░░░░░░░░░░░░░░░░
 # ░░                                          ░░
 # ░░                                          ░░
@@ -141,10 +151,14 @@ function log_delimiter_end {
 # ░░░░░░░░░░░░░░░░░░░░░▓▓▓░░░░░░░░░░░░░░░░░░░░░░
 # ░░                                          ░░
 # ░░                                          ░░
-# ░░              PREPARATIONS                ░░
+# ░░                FUNCTIONS                 ░░
 # ░░                                          ░░
 # ░░                                          ░░
 # ░░░░░░░░░░░░░░░░░░░░░▓▓▓░░░░░░░░░░░░░░░░░░░░░░
+
+function dry_run_enabled {
+    is_true "$ENABLE_DRY_RUN"
+}
 
 # Checks whether the user has root rights and if not, whether he is at least added to the 'docker' group.
 function check_permissions {
@@ -176,114 +190,97 @@ function validate_docker_compose_command {
     log_info "$version_output"
 }
 
-check_permissions
+# ╔═════════════════════╦══════════════════════╗
+# ║                                            ║
+# ║               GET ARGUMENTS                ║
+# ║                                            ║
+# ╚═════════════════════╩══════════════════════╝
 
-DOCKER_COMPOSE_NAME="docker-compose" # Name for Docker Compose files and path components
+_ARG_ACTION="${DEFAULT_ACTION}"
+_ARG_SEARCH_DIR="${DEFAULT_SEARCH_DIR}"
+_ARG_BACKUP_DIR="${DEFAULT_BACKUP_DIR}"
+_ARG_EXCLUDE_DIR="${DEFAULT_EXCLUDE_DIR}"
 
-DOCKER_COMPOSE_CMD=$(get_docker_compose_command)
-log_debug "'${DOCKER_COMPOSE_CMD}' is used"
-validate_docker_compose_command
+function process_arguments {
+    while getopts ":hvdna:s:b:e" opt; do
+        case ${opt} in
+        h)
+            echo "It is recommended to run the script with root rights to ensure that the backups work properly."
+            echo
+            echo "Usage: (sudo) $CONST_SIMPLE_SCRIPT_NAME_WITHOUT_FILE_EXTENSION"
+            echo
+            echo "  -h                  Show help"
+            echo
+            echo "  -v                  Show version"
+            echo
+            echo "  -d                  Enables debug logging"
+            echo
+            echo "  -n                  Executes a dry run, i.e. no changes are made to the file system"
+            echo
+            echo "  -a [action          Action to be performed: 'backup' or 'clean'"
+            echo "                      Default: '${DEFAULT_ACTION}'"
+            echo
+            echo "  -s [search dir]     Directory to search for ${DOCKER_COMPOSE_NAME} files"
+            echo "                      Default: '${DEFAULT_SEARCH_DIR}'"
+            echo
+            echo "  -b [backup dir]     Destination directory for backups"
+            echo "                      Default: '${DEFAULT_BACKUP_DIR}'"
+            echo
+            echo "  -e [exclude dir]    Directory to exclude from search"
+            echo "                      Default: '${DEFAULT_EXCLUDE_DIR}'"
+            exit 0
+            ;;
+        v)
+            echo "$CONST_DOMPOSY_VERSION"
+            exit 0
+            ;;
+        d)
+            log_debug "'-d' selected"
+            # shellcheck disable=SC2034
+            LOG_LEVEL=7
+            ;;
+        n)
+            log_debug "'-n' selected"
+            ENABLE_DRY_RUN=true
 
-# ░░░░░░░░░░░░░░░░░░░░░▓▓▓░░░░░░░░░░░░░░░░░░░░░░
-# ░░                                          ░░
-# ░░                                          ░░
-# ░░                ARGUMENTS                 ░░
-# ░░                                          ░░
-# ░░                                          ░░
-# ░░░░░░░░░░░░░░░░░░░░░▓▓▓░░░░░░░░░░░░░░░░░░░░░░
+            # shellcheck disable=SC2034
+            ENABLE_LOG_FILE=false
+            # shellcheck disable=SC2034
+            ENABLE_JSON_LOG_FILE=false
+            # shellcheck disable=SC2034
+            ENABLE_LOG_TO_SYSTEM=false
+            ;;
+        a)
+            log_debug "'-a' selected: '$OPTARG'"
+            _ARG_ACTION="${OPTARG}"
+            ;;
+        s)
+            log_debug "'-s' selected: '$OPTARG'"
+            _ARG_SEARCH_DIR="${OPTARG}"
+            ;;
+        b)
+            log_debug "'-b' selected: '$OPTARG'"
+            _ARG_BACKUP_DIR="${OPTARG}"
+            ;;
+        e)
+            log_debug "'-e' selected: '$OPTARG'"
+            _ARG_EXCLUDE_DIR="${OPTARG}"
+            ;;
+        \?)
+            log_error "Invalid option: -$OPTARG"
+            ;;
+        :)
+            log_error "Option -$OPTARG requires an argument!"
+            ;;
+        esac
+    done
+    shift $((OPTIND - 1))
 
-DEFAULT_ACTION="backup"
-DEFAULT_SEARCH_DIR="/home/"
-DEFAULT_BACKUP_DIR="/tmp/${CONST_SIMPLE_SCRIPT_NAME_WITHOUT_FILE_EXTENSION}_backups/"
-DEFAULT_EXCLUDE_DIR="tmp"
-
-ACTION="${DEFAULT_ACTION}"
-SEARCH_DIR="${DEFAULT_SEARCH_DIR}"
-BACKUP_DIR="${DEFAULT_BACKUP_DIR}"
-EXCLUDE_DIR="${DEFAULT_EXCLUDE_DIR}"
-
-ENABLE_DRY_RUN=false
-
-while getopts ":hvdna:s:b:e" opt; do
-    case ${opt} in
-    h)
-        echo "It is recommended to run the script with root rights to ensure that the backups work properly."
-        echo
-        echo "Usage: (sudo) $CONST_SIMPLE_SCRIPT_NAME_WITHOUT_FILE_EXTENSION [-h] [-v] [-d] [-n] [-a ACTION] [-s SEARCH_DIR] [-b BACKUP_DIR] [-e EXCLUDE_DIR] [-c]"
-        echo "  -h                 Show help"
-        echo "  -v                 Show version"
-        echo "  -d                 Enables debug logging"
-        echo "  -n                 Executes a dry run, i.e. no changes are made to the file system"
-        echo "  -a ACTION          ACTION to be performed: 'backup' or 'clean' (Default: '${DEFAULT_ACTION}')"
-        echo "  -s SEARCH_DIR      Directory to search for ${DOCKER_COMPOSE_NAME} files (Default: '${DEFAULT_SEARCH_DIR}')"
-        echo "  -b BACKUP_DIR      Destination directory for backups (Default: '${DEFAULT_BACKUP_DIR}')"
-        echo "  -e EXCLUDE_DIR     Directory to exclude from search (Default: '${DEFAULT_EXCLUDE_DIR}')"
-        exit 0
-        ;;
-    v)
-        echo "$CONST_DOMPOSY_VERSION"
-        exit 0
-        ;;
-    d)
-        log_debug "'-d' selected"
-        # shellcheck disable=SC2034
-        LOG_LEVEL=7
-        ;;
-    n)
-        log_debug "'-n' selected"
-        ENABLE_DRY_RUN=true
-
-        # shellcheck disable=SC2034
-        ENABLE_LOG_FILE=false
-        # shellcheck disable=SC2034
-        ENABLE_JSON_LOG_FILE=false
-        # shellcheck disable=SC2034
-        ENABLE_LOG_TO_SYSTEM=false
-        ;;
-    a)
-        log_debug "'-a' selected: '$OPTARG'"
-        ACTION="${OPTARG}"
-        ;;
-    s)
-        log_debug "'-s' selected: '$OPTARG'"
-        SEARCH_DIR="${OPTARG}"
-        ;;
-    b)
-        log_debug "'-b' selected: '$OPTARG'"
-        BACKUP_DIR="${OPTARG}"
-        ;;
-    e)
-        log_debug "'-e' selected: '$OPTARG'"
-        EXCLUDE_DIR="${OPTARG}"
-        ;;
-    \?)
-        log_error "Invalid option: -$OPTARG"
-        ;;
-    :)
-        log_error "Option -$OPTARG requires an argument!"
-        ;;
-    esac
-done
-shift $((OPTIND - 1))
-
-# ░░░░░░░░░░░░░░░░░░░░░▓▓▓░░░░░░░░░░░░░░░░░░░░░░
-# ░░                                          ░░
-# ░░                                          ░░
-# ░░                FUNCTIONS                 ░░
-# ░░                                          ░░
-# ░░                                          ░░
-# ░░░░░░░░░░░░░░░░░░░░░▓▓▓░░░░░░░░░░░░░░░░░░░░░░
-
-function dry_run_enabled {
-    is_true "$ENABLE_DRY_RUN"
-}
-
-function get_vars {
     log_delimiter_start 1 "VARIABLES"
-    log_notice "Action: '${ACTION}'"
-    log_notice "Search dir: '${SEARCH_DIR}'"
-    log_notice "Backup dir: '${BACKUP_DIR}'"
-    log_notice "Exclude dir: '${EXCLUDE_DIR}'"
+    log_notice "Action: '${_ARG_ACTION}'"
+    log_notice "Search dir: '${_ARG_SEARCH_DIR}'"
+    log_notice "Backup dir: '${_ARG_BACKUP_DIR}'"
+    log_notice "Exclude dir: '${_ARG_EXCLUDE_DIR}'"
     log_delimiter_end 1 "VARIABLES"
 }
 
@@ -301,10 +298,10 @@ function contains_trailing_slash {
 }
 
 function prepare_search_dir {
-    local search_dir="$SEARCH_DIR"
+    local search_dir="$_ARG_SEARCH_DIR"
 
     if ! contains_trailing_slash "$search_dir"; then search_dir="${search_dir}/"; fi
-    if directory_not_exists "$search_dir"; then log_error "The specified search directory '$SEARCH_DIR' could not be found"; fi
+    if directory_not_exists "$search_dir"; then log_error "The specified search directory '$_ARG_SEARCH_DIR' could not be found"; fi
 
     local absolute_search_dir
     absolute_search_dir=$(realpath "$search_dir")
@@ -315,11 +312,11 @@ function prepare_search_dir {
     fi
 
     log_debug_var "prepare_search_dir" "search_dir"
-    SEARCH_DIR="$search_dir"
+    _ARG_SEARCH_DIR="$search_dir"
 }
 
 function prepare_backup_dir {
-    local backup_dir="$BACKUP_DIR"
+    local backup_dir="$_ARG_BACKUP_DIR"
 
     if ! contains_trailing_slash "$backup_dir"; then backup_dir="${backup_dir}/"; fi
 
@@ -344,7 +341,7 @@ function prepare_backup_dir {
     fi
 
     log_debug_var "prepare_backup_dir" "final_backup_dir"
-    BACKUP_DIR="$final_backup_dir"
+    _ARG_BACKUP_DIR="$final_backup_dir"
 }
 
 # ╔═════════════════════╦══════════════════════╗
@@ -384,7 +381,7 @@ function find_docker_compose_files {
     local docker_compose_files=""
 
     for name in "${docker_compose_file_names[@]}"; do
-        files=$(find "$SEARCH_DIR" -path "*/${EXCLUDE_DIR}/*" -prune -o -name "$name" -print 2>/dev/null)
+        files=$(find "$_ARG_SEARCH_DIR" -path "*/${_ARG_EXCLUDE_DIR}/*" -prune -o -name "$name" -print 2>/dev/null)
 
         if is_var_not_empty "$files"; then docker_compose_files+="$files"$'\n'; fi
     done
@@ -425,7 +422,7 @@ function create_backup_file_for_single_docker_compose_project {
     file_simple_dirname=$(basename "$(dirname "$file")")
     log_debug_var "create_backup_file_for_single_docker_compose_project" "file_simple_dirname"
 
-    final_backup_dir="$BACKUP_DIR"
+    final_backup_dir="$_ARG_BACKUP_DIR"
 
     local tar_file
     tar_file="$(date +"%Y-%m-%d_%H-%M-%S")_backup_${file_simple_dirname}.tar"
@@ -523,7 +520,7 @@ function backup_docker_compose_projects {
     docker_compose_files=$(find_docker_compose_files)
 
     if [ -z "$docker_compose_files" ]; then
-        log_error "No ${DOCKER_COMPOSE_NAME} files found in '${SEARCH_DIR}'. Cannot perform backup."
+        log_error "No ${DOCKER_COMPOSE_NAME} files found in '${_ARG_SEARCH_DIR}'. Cannot perform backup."
     else
         log_notice "${DOCKER_COMPOSE_NAME} files: "$'\n'"${docker_compose_files}"
     fi
@@ -534,7 +531,7 @@ function backup_docker_compose_projects {
         backup_single_docker_compose_project "$file"
     done <<<"$docker_compose_files"
 
-    local final_backup_dir="$BACKUP_DIR"
+    local final_backup_dir="$_ARG_BACKUP_DIR"
 
     log_info "'${final_backup_dir}'..."
     if dry_run_enabled; then log_dry_run "ls -larth $final_backup_dir"; else log_notice "$(ls -larth "$final_backup_dir")"; fi
@@ -592,7 +589,7 @@ function clean_docker_environment {
 # ╚═════════════════════╩══════════════════════╝
 
 function perform_action {
-    local action=$ACTION
+    local action=$_ARG_ACTION
     log_debug_var "perform_action" "action"
 
     case $action in
@@ -616,13 +613,20 @@ function perform_action {
 # ░░                                          ░░
 # ░░░░░░░░░░░░░░░░░░░░░▓▓▓░░░░░░░░░░░░░░░░░░░░░░
 
-log_info "'$CONST_SIMPLE_SCRIPT_NAME_WITHOUT_FILE_EXTENSION' has started."
+print_colored_text "'$CONST_SIMPLE_SCRIPT_NAME_WITHOUT_FILE_EXTENSION' has started." "cyan" "regular"
 
 if dry_run_enabled; then log_warn "Dry run is enabled!"; fi
 
+check_permissions
+
+DOCKER_COMPOSE_CMD=$(get_docker_compose_command)
+log_debug "'${DOCKER_COMPOSE_CMD}' is used"
+validate_docker_compose_command
+
 log_notice "Current directory: '$(pwd)'"
 
-get_vars
+process_arguments
+
 show_docker_info
 perform_action
 show_docker_info
