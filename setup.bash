@@ -4,7 +4,7 @@ APP_NAME="domposy"
 APP_BRANCH_NAME="v2"
 
 LOGGER_NAME="simbashlog"
-LOGGER_BRANCH_NAME="15-source-causes-problems-when-arguments-are-passed-in-the-main-script"
+LOGGER_BRANCH_NAME="main"
 
 # NOTE: The repos must contain a directory called 'src' with a bash script that has the same name as the repo and ends with '.bash'!
 REPO_URLS=(
