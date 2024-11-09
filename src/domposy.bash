@@ -3,6 +3,8 @@
 # DESCRIPTION:
 # This script simplifies your Docker Compose management.
 
+CONST_DOMPOSY_VERSION="2.0.0"
+
 # ░░░░░░░░░░░░░░░░░░░░░▓▓▓░░░░░░░░░░░░░░░░░░░░░░
 # ░░                                          ░░
 # ░░                                          ░░
@@ -202,19 +204,24 @@ EXCLUDE_DIR="${DEFAULT_EXCLUDE_DIR}"
 
 ENABLE_DRY_RUN=false
 
-while getopts ":hdna:s:b:e" opt; do
+while getopts ":hvdna:s:b:e" opt; do
     case ${opt} in
     h)
         echo "It is recommended to run the script with root rights to ensure that the backups work properly."
         echo
-        echo "Usage: (sudo) $CONST_SIMPLE_SCRIPT_NAME_WITHOUT_FILE_EXTENSION [-h] [-d] [-n] [-a ACTION] [-s SEARCH_DIR] [-b BACKUP_DIR] [-e EXCLUDE_DIR] [-c]"
+        echo "Usage: (sudo) $CONST_SIMPLE_SCRIPT_NAME_WITHOUT_FILE_EXTENSION [-h] [-v] [-d] [-n] [-a ACTION] [-s SEARCH_DIR] [-b BACKUP_DIR] [-e EXCLUDE_DIR] [-c]"
         echo "  -h                 Show help"
+        echo "  -v                 Show version"
         echo "  -d                 Enables debug logging"
         echo "  -n                 Executes a dry run, i.e. no changes are made to the file system"
         echo "  -a ACTION          ACTION to be performed: 'backup' or 'clean' (Default: '${DEFAULT_ACTION}')"
         echo "  -s SEARCH_DIR      Directory to search for ${DOCKER_COMPOSE_NAME} files (Default: '${DEFAULT_SEARCH_DIR}')"
         echo "  -b BACKUP_DIR      Destination directory for backups (Default: '${DEFAULT_BACKUP_DIR}')"
         echo "  -e EXCLUDE_DIR     Directory to exclude from search (Default: '${DEFAULT_EXCLUDE_DIR}')"
+        exit 0
+        ;;
+    v)
+        echo "$CONST_DOMPOSY_VERSION"
         exit 0
         ;;
     d)

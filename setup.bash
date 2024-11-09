@@ -74,7 +74,7 @@ function install {
             echo "$app_name has been installed and is now executable."
 
             if [ -n "$(command -v "$app_name")" ]; then
-                "$app_name" --version
+                "$app_name" -v
                 echo "$app_name is working."
             else
                 echo "$app_name is not working."
