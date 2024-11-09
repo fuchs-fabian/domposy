@@ -45,6 +45,9 @@ function source_bin_script {
     local script_name="$1"
     local script_path
 
+    original_args=("$@") # Save the original arguments before they are set to nothing
+    set --               # Clear all arguments
+
     script_path=$(find_bin_script "$script_name") || return 1
 
     # shellcheck source=/dev/null
@@ -53,6 +56,8 @@ function source_bin_script {
             echo "Error: Unable to source script '$script_path'"
             return 1
         }
+
+    set -- "${original_args[@]}" # Restore the original arguments
 }
 
 # ░░░░░░░░░░░░░░░░░░░░░▓▓▓░░░░░░░░░░░░░░░░░░░░░░
