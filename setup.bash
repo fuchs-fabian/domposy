@@ -3,9 +3,12 @@
 APP_NAME="domposy"
 APP_BRANCH_NAME="v2"
 
+LOGGER_NAME="simbashlog"
+LOGGER_BRANCH_NAME="15-source-causes-problems-when-arguments-are-passed-in-the-main-script"
+
 # NOTE: The repos must contain a directory called 'src' with a bash script that has the same name as the repo and ends with '.bash'!
 REPO_URLS=(
-    "https://github.com/fuchs-fabian/simbashlog.git"
+    "https://github.com/fuchs-fabian/${LOGGER_NAME}.git"
     "https://github.com/fuchs-fabian/${APP_NAME}.git"
 )
 
@@ -55,6 +58,8 @@ function install {
 
                 if [[ "$app_name" == "$APP_NAME" ]]; then
                     git clone --branch "$APP_BRANCH_NAME" "$repo_url" "$app_dir"
+                elif [[ "$app_name" == "$LOGGER_NAME" ]]; then
+                    git clone --branch "$LOGGER_BRANCH_NAME" "$repo_url" "$app_dir"
                 else
                     git clone "$repo_url" "$app_dir"
                 fi
