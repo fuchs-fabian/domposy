@@ -284,46 +284,57 @@ function get_vars {
 # ║                                            ║
 # ╚═════════════════════╩══════════════════════╝
 
-function prepare_search_dir {
-    if [[ "${SEARCH_DIR: -1}" != "/" ]]; then
-        tmp_search_dir="${SEARCH_DIR}"
-        SEARCH_DIR="${SEARCH_DIR}/"
-        log_warn "SEARCH_DIR: '${tmp_search_dir}' changed to '${SEARCH_DIR}'"
+function contains_trailing_slash {
+    if is_var_not_empty "$1" && [[ "${1: -1}" == "/" ]]; then
+        return 0
     fi
+    return 1
+}
 
-    if [[ ! -d "$SEARCH_DIR" ]]; then
-        log_error "The specified search directory '$SEARCH_DIR' could not be found"
-    fi
+function prepare_search_dir {
+    local search_dir="$SEARCH_DIR"
+
+    if ! contains_trailing_slash "$search_dir"; then search_dir="${search_dir}/"; fi
+    if directory_not_exists "$search_dir"; then log_error "The specified search directory '$SEARCH_DIR' could not be found"; fi
 
     local absolute_search_dir
-    absolute_search_dir=$(realpath "$SEARCH_DIR")
+    absolute_search_dir=$(realpath "$search_dir")
 
-    if [[ "$SEARCH_DIR" != "$absolute_search_dir/" ]]; then
-        log_warn "SEARCH_DIR: '${SEARCH_DIR}' replaced with the absolute path '${absolute_search_dir}/'"
-        SEARCH_DIR="${absolute_search_dir}/"
+    if is_var_not_equal "$search_dir" "$absolute_search_dir"; then
+        log_notice "Replace search directory '${search_dir}' with the absolute path '${absolute_search_dir}'..."
+        search_dir="$absolute_search_dir"
     fi
+
+    log_debug_var "prepare_search_dir" "search_dir"
+    SEARCH_DIR="$search_dir"
 }
 
 function prepare_backup_dir {
-    local original_backup_dir="$1"
+    local backup_dir="$BACKUP_DIR"
 
-    if [[ "${original_backup_dir: -1}" != "/" ]]; then
-        original_backup_dir="${original_backup_dir}/"
-        log_warn "Backup directory path changed to '${original_backup_dir}'"
-    fi
+    if ! contains_trailing_slash "$backup_dir"; then backup_dir="${backup_dir}/"; fi
 
     local final_backup_dir
-    final_backup_dir="${original_backup_dir}$(date +"%Y-%m-%d")/"
+    final_backup_dir="${backup_dir}$(date +"%Y-%m-%d")/"
 
-    if [[ ! -d "$final_backup_dir" ]]; then
+    if directory_not_exists "$final_backup_dir"; then
         if dry_run_enabled; then
             log_dry_run "mkdir -p $final_backup_dir"
         else
-            mkdir -p "$final_backup_dir" || log_error "Backup directory '$(realpath "$final_backup_dir")' could not be created"
-            log_notice "Backup directory '$(realpath "$final_backup_dir")' was created"
+            mkdir -p "$final_backup_dir" || log_error "Backup directory '$final_backup_dir' could not be created"
+            log_notice "Backup directory '$final_backup_dir' was created"
         fi
     fi
 
+    local absolute_backup_dir
+    absolute_backup_dir=$(realpath "$final_backup_dir")
+
+    if is_var_not_equal "$final_backup_dir" "$absolute_backup_dir"; then
+        log_notice "Replace backup directory '${final_backup_dir}' with the absolute path '${absolute_backup_dir}'..."
+        final_backup_dir="$absolute_backup_dir"
+    fi
+
+    log_debug_var "prepare_backup_dir" "final_backup_dir"
     BACKUP_DIR="$final_backup_dir"
 }
 
@@ -497,7 +508,8 @@ function backup_docker_compose_projects {
         log_notice "${DOCKER_COMPOSE_NAME} files: "$'\n'"${docker_compose_files}"
     fi
 
-    prepare_backup_dir "$BACKUP_DIR"
+    prepare_search_dir
+    prepare_backup_dir
 
     while IFS= read -r file; do
         backup_single_docker_compose_project "$file"
@@ -589,7 +601,6 @@ log_notice "'$CONST_SIMPLE_SCRIPT_NAME_WITHOUT_FILE_EXTENSION' has started."
 
 if dry_run_enabled; then log_warn "Dry run is enabled!"; fi
 
-prepare_search_dir
 log_notice "Current directory: '$(pwd)'"
 
 get_vars
