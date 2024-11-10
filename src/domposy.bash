@@ -169,6 +169,7 @@ function _is_dry_run_enabled {
     is_true "$ENABLE_DRY_RUN"
 }
 
+# Checks if a var contains a trailing slash.
 function contains_trailing_slash {
     if is_var_not_empty "$1" && [[ "${1: -1}" == "/" ]]; then
         return 0
@@ -176,6 +177,7 @@ function contains_trailing_slash {
     return 1
 }
 
+# Checks if a directory exists.
 function check_file_creation {
     local file=$1
     log_debug_var "check_file_creation" "file"
@@ -199,7 +201,6 @@ function check_file_creation {
 # ░░                                          ░░
 # ░░░░░░░░░░░░░░░░░░░░░▓▓▓░░░░░░░░░░░░░░░░░░░░░░
 
-# Checks whether the user has root rights and if not, whether he is at least added to the 'docker' group.
 function _check_permissions {
     log_notice "Current user: '$(whoami)'"
     if [[ $(id -u) -ne 0 ]]; then
@@ -385,6 +386,7 @@ function _process_arguments {
 # ║                                            ║
 # ╚═════════════════════╩══════════════════════╝
 
+# Shows Docker information like disk usage, running containers, images etc.
 function show_docker_info {
     log_delimiter_start 1 "DOCKER INFO"
     log_info "docker system df..."
@@ -622,6 +624,7 @@ function _backup_docker_compose_projects {
 # ║                                            ║
 # ╚═════════════════════╩══════════════════════╝
 
+# Cleans the Docker environment by removing non-running containers, unused images and volumes.
 function clean_docker_environment {
     function _process_preview {
         log_delimiter_start 2 "PREVIEW"
@@ -668,9 +671,7 @@ function clean_docker_environment {
 # ░░░░░░░░░░░░░░░░░░░░░▓▓▓░░░░░░░░░░░░░░░░░░░░░░
 
 _process_arguments "$@"
-
 _check_permissions
-
 _set_docker_compose_cmd
 
 log_notice "Current directory: '$(pwd)'"
