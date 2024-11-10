@@ -214,7 +214,7 @@ function _check_permissions {
 
 # ╔═════════════════════╦══════════════════════╗
 # ║                                            ║
-# ║               GET ARGUMENTS                ║
+# ║                 ARGUMENTS                  ║
 # ║                                            ║
 # ╚═════════════════════╩══════════════════════╝
 
@@ -404,7 +404,7 @@ function show_docker_info {
 }
 
 # Returns the Docker Compose command. So whether 'docker-compose' or 'docker compose'.
-function get_docker_compose_command {
+function get_docker_compose_cmd {
     if command -v docker-compose &>/dev/null; then
         echo "docker-compose"
     elif docker compose version &>/dev/null; then
@@ -415,7 +415,7 @@ function get_docker_compose_command {
 }
 
 function _set_docker_compose_cmd {
-    DOCKER_COMPOSE_CMD=$(get_docker_compose_command)
+    DOCKER_COMPOSE_CMD=$(get_docker_compose_cmd)
     log_debug "'${DOCKER_COMPOSE_CMD}' is used"
 
     local version_output
