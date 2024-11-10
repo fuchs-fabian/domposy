@@ -383,7 +383,7 @@ function prepare_search_dir {
     if directory_not_exists "$search_dir"; then log_error "The specified search directory '$_ARG_SEARCH_DIR' could not be found"; fi
 
     local absolute_search_dir
-    absolute_search_dir=$(realpath "$search_dir")
+    absolute_search_dir="$(realpath "$search_dir")/"
 
     if is_var_not_equal "$search_dir" "$absolute_search_dir"; then
         log_info "Replace search directory '${search_dir}' with the absolute path '${absolute_search_dir}'..."
@@ -412,7 +412,7 @@ function prepare_backup_dir {
     fi
 
     local absolute_backup_dir
-    absolute_backup_dir=$(realpath "$final_backup_dir")
+    absolute_backup_dir="$(realpath "$final_backup_dir")/"
 
     if is_var_not_equal "$final_backup_dir" "$absolute_backup_dir"; then
         log_info "Replace backup directory '${final_backup_dir}' with the absolute path '${absolute_backup_dir}'..."
@@ -677,9 +677,6 @@ function perform_action {
         ;;
     clean)
         clean_docker_environment
-        ;;
-    *)
-        log_error "Invalid action: '${action}'"
         ;;
     esac
 }
