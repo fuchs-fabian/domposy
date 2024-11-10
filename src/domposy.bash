@@ -677,7 +677,7 @@ function _backup_docker_compose_projects {
 # ╚═════════════════════╩══════════════════════╝
 
 # Cleans the Docker environment by removing non-running containers, unused images and volumes.
-function clean_docker_environment {
+function _clean_docker_environment {
     function _process_preview {
         log_delimiter_start 2 "PREVIEW"
 
@@ -735,7 +735,7 @@ function execute_backup {
 }
 
 function execute_clean {
-    clean_docker_environment
+    _clean_docker_environment
 }
 
 _process_arguments "$@"
