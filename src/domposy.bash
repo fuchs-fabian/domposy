@@ -5,16 +5,6 @@
 
 CONST_DOMPOSY_VERSION="2.0.0"
 
-DEFAULT_ACTION="backup"
-DEFAULT_SEARCH_DIR="/home/"
-DEFAULT_BACKUP_DIR="/tmp/${CONST_SIMPLE_SCRIPT_NAME_WITHOUT_FILE_EXTENSION}_backups/"
-DEFAULT_EXCLUDE_DIR="tmp"
-
-ENABLE_DRY_RUN=false
-
-DOCKER_COMPOSE_NAME="docker-compose"
-DOCKER_COMPOSE_CMD=""
-
 # ░░░░░░░░░░░░░░░░░░░░░▓▓▓░░░░░░░░░░░░░░░░░░░░░░
 # ░░                                          ░░
 # ░░                                          ░░
@@ -147,6 +137,24 @@ function log_delimiter_start {
 function log_delimiter_end {
     log_delimiter "$1" "$2" "<" false
 }
+
+# ░░░░░░░░░░░░░░░░░░░░░▓▓▓░░░░░░░░░░░░░░░░░░░░░░
+# ░░                                          ░░
+# ░░                                          ░░
+# ░░                VARIABLES                 ░░
+# ░░                                          ░░
+# ░░                                          ░░
+# ░░░░░░░░░░░░░░░░░░░░░▓▓▓░░░░░░░░░░░░░░░░░░░░░░
+
+DEFAULT_ACTION="backup"
+DEFAULT_SEARCH_DIR="/home/"
+DEFAULT_BACKUP_DIR="/tmp/${CONST_SIMPLE_SCRIPT_NAME_WITHOUT_FILE_EXTENSION}_backups/"
+DEFAULT_EXCLUDE_DIR="tmp"
+
+ENABLE_DRY_RUN=false
+
+DOCKER_COMPOSE_NAME="docker-compose"
+DOCKER_COMPOSE_CMD=""
 
 # ░░░░░░░░░░░░░░░░░░░░░▓▓▓░░░░░░░░░░░░░░░░░░░░░░
 # ░░                                          ░░
