@@ -1,9 +1,68 @@
 #!/usr/bin/env bash
 
+# # # # # # # # # # # # # # # # # # # # # # # # #
+#      _                                        #
+#     | |                                       #
+#   __| | ___  _ __ ___  _ __   ___  ___ _   _  #
+#  / _` |/ _ \| '_ ` _ \| '_ \ / _ \/ __| | | | #
+# | (_| | (_) | | | | | | |_) | (_) \__ \ |_| | #
+#  \__,_|\___/|_| |_| |_| .__/ \___/|___/\__, | #
+#                       | |               __/ | #
+#                       |_|              |___/  #
+#                                               #
+# # # # # # # # # # # # # # # # # # # # # # # # #
+
+# DISCLAIMER:
+# Not POSIX conform!
+#
+#
 # DESCRIPTION:
 # This script simplifies your Docker Compose management.
+#
+# It can be sourced with:
+#
+# ```bash
+# source <path>/domposy.bash >/dev/null 2>&1
+# ```
+#
+# `<path>` should be replaced by the actual path where 'domposy' is located.
+#
+# But it is recommended to run it directly:
+#
+# e.g.:
+# ```bash
+# ./domposy.bash -a backup --search-dir /data/container/ --exclude-dir git --backup-dir /mnt/backups/
+# ```
+#
+# To summarize briefly:
+# - It shows Docker information like disk usage, running containers, images etc.
+# - It creates a backup of a Docker Compose project folder by packing the files into a tar archive and then compressing them.
+# - It cleans the Docker environment by removing non-running containers, unused images and volumes.
 
-CONST_DOMPOSY_VERSION="2.0.0"
+# ░░░░░░░░░░░░░░░░░░░░░▓▓▓░░░░░░░░░░░░░░░░░░░░░░
+# ░░                                          ░░
+# ░░                                          ░░
+# ░░                 LICENSE                  ░░
+# ░░                                          ░░
+# ░░                                          ░░
+# ░░░░░░░░░░░░░░░░░░░░░▓▓▓░░░░░░░░░░░░░░░░░░░░░░
+
+# simbashlog:
+# https://github.com/fuchs-fabian/simbashlog/blob/main/LICENSE
+#
+# domposy:
+# https://github.com/fuchs-fabian/domposy/blob/main/LICENSE
+
+# ░░░░░░░░░░░░░░░░░░░░░▓▓▓░░░░░░░░░░░░░░░░░░░░░░
+# ░░                                          ░░
+# ░░                                          ░░
+# ░░                METADATA                  ░░
+# ░░                                          ░░
+# ░░                                          ░░
+# ░░░░░░░░░░░░░░░░░░░░░▓▓▓░░░░░░░░░░░░░░░░░░░░░░
+
+declare -rx CONST_DOMPOSY_VERSION="2.0.0"
+declare -rx CONST_DOMPOSY_NAME="domposy"
 
 # ░░░░░░░░░░░░░░░░░░░░░▓▓▓░░░░░░░░░░░░░░░░░░░░░░
 # ░░                                          ░░
@@ -51,18 +110,19 @@ function find_bin_script {
 # ░░                                          ░░
 # ░░░░░░░░░░░░░░░░░░░░░▓▓▓░░░░░░░░░░░░░░░░░░░░░░
 
-LOGGER="simbashlog"
+declare -rx CONST_LOGGER_NAME="simbashlog"
 
-ORIGINAL_LOGGER_SCRIPT_PATH=$(find_bin_script "$LOGGER") ||
+CONST_ORIGINAL_LOGGER_SCRIPT_PATH=$(find_bin_script "$CONST_LOGGER_NAME") ||
     {
-        echo "Critical: Unable to resolve logger script '$LOGGER'. Exiting..."
+        echo "Critical: Unable to resolve logger script '$CONST_LOGGER_NAME'. Exiting..."
         exit 1
     }
+declare -rx CONST_ORIGINAL_LOGGER_SCRIPT_PATH
 
 # shellcheck source=/dev/null
-source "$ORIGINAL_LOGGER_SCRIPT_PATH" >/dev/null 2>&1 ||
+source "$CONST_ORIGINAL_LOGGER_SCRIPT_PATH" >/dev/null 2>&1 ||
     {
-        echo "Critical: Unable to source logger script '$ORIGINAL_LOGGER_SCRIPT_PATH'. Exiting..."
+        echo "Critical: Unable to source logger script '$CONST_ORIGINAL_LOGGER_SCRIPT_PATH'. Exiting..."
         exit 1
     }
 
@@ -146,16 +206,16 @@ function log_delimiter_end {
 # ░░                                          ░░
 # ░░░░░░░░░░░░░░░░░░░░░▓▓▓░░░░░░░░░░░░░░░░░░░░░░
 
-ENABLE_DRY_RUN=false
+declare -x ENABLE_DRY_RUN=false
 
-DOCKER_COMPOSE_NAME="docker-compose"
-DOCKER_COMPOSE_CMD=""
+declare -rx CONST_DOCKER_COMPOSE_NAME="docker-compose"
+declare -x DOCKER_COMPOSE_CMD=""
 
-DEFAULT_ACTION="backup"
+declare -rx CONST_DEFAULT_ACTION="backup"
 
-DEFAULT_SEARCH_DIR="/home/"
-DEFAULT_EXCLUDE_DIR="tmp"
-DEFAULT_BACKUP_DIR="/tmp/${CONST_SIMPLE_SCRIPT_NAME_WITHOUT_FILE_EXTENSION}_backups/"
+declare -rx CONST_DEFAULT_SEARCH_DIR="/home/"
+declare -rx CONST_DEFAULT_EXCLUDE_DIR="tmp"
+declare -rx CONST_DEFAULT_BACKUP_DIR="/tmp/${CONST_SIMPLE_SCRIPT_NAME_WITHOUT_FILE_EXTENSION}_backups/"
 
 # ░░░░░░░░░░░░░░░░░░░░░▓▓▓░░░░░░░░░░░░░░░░░░░░░░
 # ░░                                          ░░
@@ -218,11 +278,11 @@ function _check_permissions {
 # ║                                            ║
 # ╚═════════════════════╩══════════════════════╝
 
-_ARG_ACTION="${DEFAULT_ACTION}"
+declare -x _ARG_ACTION="${CONST_DEFAULT_ACTION}"
 
-_ARG_SEARCH_DIR="${DEFAULT_SEARCH_DIR}"
-_ARG_EXCLUDE_DIR="${DEFAULT_EXCLUDE_DIR}"
-_ARG_BACKUP_DIR="${DEFAULT_BACKUP_DIR}"
+declare -x _ARG_SEARCH_DIR="${CONST_DEFAULT_SEARCH_DIR}"
+declare -x _ARG_EXCLUDE_DIR="${CONST_DEFAULT_EXCLUDE_DIR}"
+declare -x _ARG_BACKUP_DIR="${CONST_DEFAULT_BACKUP_DIR}"
 
 function _process_arguments {
     local arg_which_is_processed=""
@@ -273,19 +333,19 @@ function _process_arguments {
             echo
             echo "  -a, --action    [action]        Action to be performed"
             echo "                                  {backup,clean}"
-            echo "                                  Default: '${DEFAULT_ACTION}'"
+            echo "                                  Default: '${CONST_DEFAULT_ACTION}'"
             echo
-            echo "  --search-dir    [search dir]    Directory to search for ${DOCKER_COMPOSE_NAME} files"
+            echo "  --search-dir    [search dir]    Directory to search for ${CONST_DOCKER_COMPOSE_NAME} files"
             echo "                                  $note_for_valid_action_for_backup"
-            echo "                                  Default: '${DEFAULT_SEARCH_DIR}'"
+            echo "                                  Default: '${CONST_DEFAULT_SEARCH_DIR}'"
             echo
             echo "  --exclude-dir   [exclude dir]   Directory to exclude from search"
             echo "                                  $note_for_valid_action_for_backup"
-            echo "                                  Default: '${DEFAULT_EXCLUDE_DIR}'"
+            echo "                                  Default: '${CONST_DEFAULT_EXCLUDE_DIR}'"
             echo
             echo "  --backup-dir    [backup dir]    Destination directory for backups"
             echo "                                  $note_for_valid_action_for_backup"
-            echo "                                  Default: '${DEFAULT_BACKUP_DIR}'"
+            echo "                                  Default: '${CONST_DEFAULT_BACKUP_DIR}'"
 
             # shellcheck disable=SC2034
             ENABLE_SUMMARY_ON_EXIT=false
@@ -420,7 +480,7 @@ function _set_docker_compose_cmd {
 
     local version_output
     version_output=$($DOCKER_COMPOSE_CMD version 2>&1) || log_error "Failed to execute '$DOCKER_COMPOSE_CMD version'. Error: $version_output"
-    log_info "$version_output"
+    log_debug "$version_output"
 }
 
 function _find_docker_compose_files {
@@ -428,8 +488,8 @@ function _find_docker_compose_files {
     local exclude_dir="$2"
 
     local docker_compose_file_names=(
-        "${DOCKER_COMPOSE_NAME}.yml"
-        "${DOCKER_COMPOSE_NAME}.yaml"
+        "${CONST_DOCKER_COMPOSE_NAME}.yml"
+        "${CONST_DOCKER_COMPOSE_NAME}.yaml"
     )
 
     local docker_compose_files=""
@@ -502,7 +562,7 @@ function _create_backup_file_for_single_docker_compose_project {
 
     log_notice ">>> Backup created. You can download '${gz_file_with_backup_dir}' e.g. with FileZilla."
     log_notice ">>> To navigate to the backup directory: 'cd ${backup_dir}'"
-    log_notice ">>> To move the file: '(sudo) mv ${gz_file} /my/dir/for/${DOCKER_COMPOSE_NAME}-projects/${file_simple_dirname}/'"
+    log_notice ">>> To move the file: '(sudo) mv ${gz_file} /my/dir/for/${CONST_DOCKER_COMPOSE_NAME}-projects/${file_simple_dirname}/'"
     log_notice ">>> To undo gzip: '(sudo) gunzip ${gz_file}'"
     log_notice ">>> To unpack the tar file: '(sudo) tar -xpf ${tar_file}'"
 }
@@ -600,9 +660,9 @@ function _backup_docker_compose_projects {
     docker_compose_files=$(_find_docker_compose_files "$search_dir" "$exclude_dir")
 
     if [ -z "$docker_compose_files" ]; then
-        log_error "No ${DOCKER_COMPOSE_NAME} files found in '${search_dir}'. Cannot perform backup."
+        log_error "No ${CONST_DOCKER_COMPOSE_NAME} files found in '${search_dir}'. Cannot perform backup."
     else
-        log_notice "${DOCKER_COMPOSE_NAME} files: "$'\n'"${docker_compose_files}"
+        log_notice "${CONST_DOCKER_COMPOSE_NAME} files: "$'\n'"${docker_compose_files}"
     fi
 
     prepare_backup_dir
@@ -670,23 +730,40 @@ function clean_docker_environment {
 # ░░                                          ░░
 # ░░░░░░░░░░░░░░░░░░░░░▓▓▓░░░░░░░░░░░░░░░░░░░░░░
 
-_process_arguments "$@"
-_check_permissions
-_set_docker_compose_cmd
+function execute_backup {
+    local search_dir="$1"
+    local exclude_dir="$2"
+    local backup_dir="$3"
 
-log_notice "Current directory: '$(pwd)'"
+    _backup_docker_compose_projects "$search_dir" "$exclude_dir" "$backup_dir"
+}
 
-show_docker_info
-
-case $_ARG_ACTION in
-backup)
-    _backup_docker_compose_projects "$_ARG_SEARCH_DIR" "$_ARG_EXCLUDE_DIR" "$_ARG_BACKUP_DIR"
-    ;;
-clean)
+function execute_clean {
     clean_docker_environment
-    ;;
-esac
+}
 
-show_docker_info
+if is_current_script_sourced; then
+    print_colored_text "'$CONST_DOMPOSY_NAME' detected that it was sourced." "cyan" "regular"
+    _set_docker_compose_cmd
+else
+    _process_arguments "$@"
+    _check_permissions
+    _set_docker_compose_cmd
+
+    log_notice "Current directory: '$(pwd)'"
+
+    show_docker_info
+
+    case $_ARG_ACTION in
+    backup)
+        execute_backup "$_ARG_SEARCH_DIR" "$_ARG_EXCLUDE_DIR" "$_ARG_BACKUP_DIR"
+        ;;
+    clean)
+        execute_clean
+        ;;
+    esac
+
+    show_docker_info
+fi
 
 exit 0
