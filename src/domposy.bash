@@ -423,10 +423,7 @@ function _set_docker_compose_cmd {
 
 function find_docker_compose_files {
     local search_dir="$1"
-    log_debug_var "find_docker_compose_files" "search_dir"
-
     local exclude_dir="$2"
-    log_debug_var "find_docker_compose_files" "exclude_dir"
 
     local docker_compose_file_names=(
         "${DOCKER_COMPOSE_NAME}.yml"
@@ -454,7 +451,7 @@ function create_backup_file_for_single_docker_compose_project {
     local backup_dir="$1"
     log_debug_var "create_backup_file_for_single_docker_compose_project" "backup_dir"
 
-    local file=$2
+    local file="$2"
     log_debug_var "create_backup_file_for_single_docker_compose_project" "file"
 
     local file_dir
@@ -512,7 +509,7 @@ function backup_single_docker_compose_project {
     local backup_dir="$1"
     log_debug_var "backup_single_docker_compose_project" "backup_dir"
 
-    local file=$2
+    local file="$2"
     log_debug_var "backup_single_docker_compose_project" "file"
 
     local file_dir
