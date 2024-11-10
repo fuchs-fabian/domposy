@@ -263,10 +263,16 @@ function process_arguments {
             echo "  --exclude-dir   [exclude dir]   Directory to exclude from search"
             echo "                                  $note_for_valid_action_for_backup"
             echo "                                  Default: '${DEFAULT_EXCLUDE_DIR}'"
+
+            # shellcheck disable=SC2034
+            ENABLE_SUMMARY_ON_EXIT=false
             exit 0
             ;;
         -v | --version)
             echo "$CONST_DOMPOSY_VERSION"
+
+            # shellcheck disable=SC2034
+            ENABLE_SUMMARY_ON_EXIT=false
             exit 0
             ;;
         -d | --debug)
@@ -285,6 +291,8 @@ function process_arguments {
             ENABLE_JSON_LOG_FILE=false
             # shellcheck disable=SC2034
             ENABLE_LOG_TO_SYSTEM=false
+            # shellcheck disable=SC2034
+            ENABLE_SUMMARY_ON_EXIT=false
             ;;
         -a | --action)
             log_debug "'$1' selected"
@@ -678,6 +686,8 @@ function perform_action {
 
 print_colored_text "'$CONST_SIMPLE_SCRIPT_NAME_WITHOUT_FILE_EXTENSION' has started." "cyan" "regular"
 
+process_arguments "$@"
+
 if dry_run_enabled; then log_warn "Dry run is enabled!"; fi
 
 check_permissions
@@ -687,8 +697,6 @@ log_debug "'${DOCKER_COMPOSE_CMD}' is used"
 validate_docker_compose_command
 
 log_notice "Current directory: '$(pwd)'"
-
-process_arguments "$@"
 
 show_docker_info
 perform_action
