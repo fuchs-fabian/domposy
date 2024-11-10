@@ -70,7 +70,7 @@ ORIGINAL_LOGGER_SCRIPT_PATH=$(find_bin_script "$LOGGER") ||
     }
 
 # shellcheck source=/dev/null
-source "$ORIGINAL_LOGGER_SCRIPT_PATH" ||
+source "$ORIGINAL_LOGGER_SCRIPT_PATH" >/dev/null 2>&1 ||
     {
         echo "Critical: Unable to source logger script '$ORIGINAL_LOGGER_SCRIPT_PATH'. Exiting..."
         exit 1
@@ -202,45 +202,87 @@ _ARG_BACKUP_DIR="${DEFAULT_BACKUP_DIR}"
 _ARG_EXCLUDE_DIR="${DEFAULT_EXCLUDE_DIR}"
 
 function process_arguments {
-    while getopts ":hvdna:s:b:e" opt; do
-        case ${opt} in
-        h)
+    local arg_which_is_processed=""
+    local message_with_help_information="Use '-h' or '--help' for more information."
+
+    function _validate_if_value_is_short_argument {
+        local value="$1"
+        if [[ "$value" == "-"* && "$value" != "--"* ]]; then
+            log_error "'${arg_which_is_processed}': Invalid value ('$value')! Value must not start with '-'."
+        fi
+    }
+
+    function _validate_if_value_is_long_argument {
+        local value="$1"
+        if [[ "$value" == "--"* ]]; then
+            log_error "'${arg_which_is_processed}': Invalid value ('$value')! Value must not start with '--'."
+        fi
+    }
+
+    function _validate_if_value_is_argument {
+        local value="$1"
+        _validate_if_value_is_short_argument "$value"
+        _validate_if_value_is_long_argument "$value"
+    }
+
+    local note_for_valid_action_for_backup="Note: '-a, --action' should be used before this, otherwise it has no effect"
+    local is_action_backup_used=false
+    function _is_used_without_action_backup {
+        if is_false "$is_action_backup_used"; then
+            log_warn "'$arg_which_is_processed': Should only be used if '-a, --action' is used before and set to 'backup', e.g. '... -a backup $arg_which_is_processed ...'."
+        fi
+    }
+
+    while [[ $# -gt 0 ]]; do
+        case $1 in
+        -h | --help)
             echo "It is recommended to run the script with root rights to ensure that the backups work properly."
             echo
             echo "Usage: (sudo) $CONST_SIMPLE_SCRIPT_NAME_WITHOUT_FILE_EXTENSION"
             echo
-            echo "  -h                  Show help"
+            echo "  -h, --help                      Show help"
             echo
-            echo "  -v                  Show version"
+            echo "  -v, --version                   Show version"
             echo
-            echo "  -d                  Enables debug logging"
+            echo "  -d, --debug                     Enables debug logging"
             echo
-            echo "  -n                  Executes a dry run, i.e. no changes are made to the file system"
+            echo "  -n, --dry-run                   Executes a dry run, i.e. no changes are made to the file system"
             echo
-            echo "  -a [action          Action to be performed: 'backup' or 'clean'"
-            echo "                      Default: '${DEFAULT_ACTION}'"
+            echo "  -a, --action    [action]        Action to be performed"
+            echo "                                  {backup,clean}"
+            echo "                                  Default: '${DEFAULT_ACTION}'"
             echo
-            echo "  -s [search dir]     Directory to search for ${DOCKER_COMPOSE_NAME} files"
-            echo "                      Default: '${DEFAULT_SEARCH_DIR}'"
+            echo "  --search-dir    [search dir]    Directory to search for ${DOCKER_COMPOSE_NAME} files"
+            echo "                                  $note_for_valid_action_for_backup"
+            echo "                                  Default: '${DEFAULT_SEARCH_DIR}'"
             echo
-            echo "  -b [backup dir]     Destination directory for backups"
-            echo "                      Default: '${DEFAULT_BACKUP_DIR}'"
+            echo "  --backup-dir    [backup dir]    Destination directory for backups"
+            echo "                                  $note_for_valid_action_for_backup"
+            echo "                                  Default: '${DEFAULT_BACKUP_DIR}'"
             echo
-            echo "  -e [exclude dir]    Directory to exclude from search"
-            echo "                      Default: '${DEFAULT_EXCLUDE_DIR}'"
+            echo "  --exclude-dir   [exclude dir]   Directory to exclude from search"
+            echo "                                  $note_for_valid_action_for_backup"
+            echo "                                  Default: '${DEFAULT_EXCLUDE_DIR}'"
+
+            # shellcheck disable=SC2034
+            ENABLE_SUMMARY_ON_EXIT=false
             exit 0
             ;;
-        v)
+        -v | --version)
             echo "$CONST_DOMPOSY_VERSION"
+
+            # shellcheck disable=SC2034
+            ENABLE_SUMMARY_ON_EXIT=false
             exit 0
             ;;
-        d)
-            log_debug "'-d' selected"
+        -d | --debug)
+            log_debug "'$1' selected"
+
             # shellcheck disable=SC2034
             LOG_LEVEL=7
             ;;
-        n)
-            log_debug "'-n' selected"
+        -n | --dry-run)
+            log_debug "'$1' selected"
             ENABLE_DRY_RUN=true
 
             # shellcheck disable=SC2034
@@ -249,39 +291,68 @@ function process_arguments {
             ENABLE_JSON_LOG_FILE=false
             # shellcheck disable=SC2034
             ENABLE_LOG_TO_SYSTEM=false
+            # shellcheck disable=SC2034
+            ENABLE_SUMMARY_ON_EXIT=false
             ;;
-        a)
-            log_debug "'-a' selected: '$OPTARG'"
-            _ARG_ACTION="${OPTARG}"
+        -a | --action)
+            log_debug "'$1' selected"
+            arg_which_is_processed="$1"
+            shift
+            _validate_if_value_is_argument "$1"
+            case $1 in
+            backup)
+                is_action_backup_used=true
+                ;;
+            clean) ;;
+            *)
+                log_error "Invalid action: '$1'. $message_with_help_information"
+                ;;
+            esac
+            _ARG_ACTION="$1"
+            log_debug_var "process_arguments" "_ARG_ACTION"
             ;;
-        s)
-            log_debug "'-s' selected: '$OPTARG'"
-            _ARG_SEARCH_DIR="${OPTARG}"
+        --search-dir)
+            log_debug "'$1' selected"
+            arg_which_is_processed="$1"
+            _is_used_without_action_backup
+            shift
+            _validate_if_value_is_argument "$1"
+
+            if is_var_empty "$1"; then log_error "'$arg_which_is_processed': Value must not be empty. If you want to use the default directory do not use this option."; fi
+
+            _ARG_SEARCH_DIR="$1"
+            log_debug_var "process_arguments" "_ARG_SEARCH_DIR"
             ;;
-        b)
-            log_debug "'-b' selected: '$OPTARG'"
-            _ARG_BACKUP_DIR="${OPTARG}"
+        --backup-dir)
+            log_debug "'$1' selected"
+            arg_which_is_processed="$1"
+            _is_used_without_action_backup
+            shift
+            _validate_if_value_is_argument "$1"
+
+            if is_var_empty "$1"; then log_error "'$arg_which_is_processed': Value must not be empty. If you want to use the default directory do not use this option."; fi
+
+            _ARG_BACKUP_DIR="$1"
+            log_debug_var "process_arguments" "_ARG_BACKUP_DIR"
             ;;
-        e)
-            log_debug "'-e' selected: '$OPTARG'"
-            _ARG_EXCLUDE_DIR="${OPTARG}"
+        --exclude-dir)
+            log_debug "'$1' selected"
+            arg_which_is_processed="$1"
+            _is_used_without_action_backup
+            shift
+            _validate_if_value_is_argument "$1"
+
+            if is_var_empty "$1"; then log_error "'$arg_which_is_processed': Value must not be empty. If you do not want to exclude any directory do not use this option."; fi
+
+            _ARG_EXCLUDE_DIR="$1"
+            log_debug_var "process_arguments" "_ARG_EXCLUDE_DIR"
             ;;
-        \?)
-            log_error "Invalid option: -$OPTARG"
-            ;;
-        :)
-            log_error "Option -$OPTARG requires an argument!"
+        *)
+            log_error "Invalid argument: '$1'. $message_with_help_information"
             ;;
         esac
+        shift
     done
-    shift $((OPTIND - 1))
-
-    log_delimiter_start 1 "VARIABLES"
-    log_notice "Action: '${_ARG_ACTION}'"
-    log_notice "Search dir: '${_ARG_SEARCH_DIR}'"
-    log_notice "Backup dir: '${_ARG_BACKUP_DIR}'"
-    log_notice "Exclude dir: '${_ARG_EXCLUDE_DIR}'"
-    log_delimiter_end 1 "VARIABLES"
 }
 
 # ╔═════════════════════╦══════════════════════╗
@@ -613,7 +684,7 @@ function perform_action {
 # ░░                                          ░░
 # ░░░░░░░░░░░░░░░░░░░░░▓▓▓░░░░░░░░░░░░░░░░░░░░░░
 
-print_colored_text "'$CONST_SIMPLE_SCRIPT_NAME_WITHOUT_FILE_EXTENSION' has started." "cyan" "regular"
+process_arguments "$@"
 
 if dry_run_enabled; then log_warn "Dry run is enabled!"; fi
 
@@ -624,8 +695,6 @@ log_debug "'${DOCKER_COMPOSE_CMD}' is used"
 validate_docker_compose_command
 
 log_notice "Current directory: '$(pwd)'"
-
-process_arguments
 
 show_docker_info
 perform_action
