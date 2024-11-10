@@ -8,7 +8,7 @@ CONST_DOMPOSY_VERSION="2.0.0"
 # ░░░░░░░░░░░░░░░░░░░░░▓▓▓░░░░░░░░░░░░░░░░░░░░░░
 # ░░                                          ░░
 # ░░                                          ░░
-# ░░             SOURCING HELPER              ░░
+# ░░              GENERAL UTILS               ░░
 # ░░                                          ░░
 # ░░                                          ░░
 # ░░░░░░░░░░░░░░░░░░░░░▓▓▓░░░░░░░░░░░░░░░░░░░░░░
@@ -46,7 +46,7 @@ function find_bin_script {
 # ░░░░░░░░░░░░░░░░░░░░░▓▓▓░░░░░░░░░░░░░░░░░░░░░░
 # ░░                                          ░░
 # ░░                                          ░░
-# ░░             LOGGING HELPER               ░░
+# ░░                 LOGGING                  ░░
 # ░░                                          ░░
 # ░░                                          ░░
 # ░░░░░░░░░░░░░░░░░░░░░▓▓▓░░░░░░░░░░░░░░░░░░░░░░
@@ -146,27 +146,58 @@ function log_delimiter_end {
 # ░░                                          ░░
 # ░░░░░░░░░░░░░░░░░░░░░▓▓▓░░░░░░░░░░░░░░░░░░░░░░
 
-DEFAULT_ACTION="backup"
-DEFAULT_SEARCH_DIR="/home/"
-DEFAULT_BACKUP_DIR="/tmp/${CONST_SIMPLE_SCRIPT_NAME_WITHOUT_FILE_EXTENSION}_backups/"
-DEFAULT_EXCLUDE_DIR="tmp"
-
 ENABLE_DRY_RUN=false
 
 DOCKER_COMPOSE_NAME="docker-compose"
 DOCKER_COMPOSE_CMD=""
 
+DEFAULT_ACTION="backup"
+
+DEFAULT_SEARCH_DIR="/home/"
+DEFAULT_EXCLUDE_DIR="tmp"
+DEFAULT_BACKUP_DIR="/tmp/${CONST_SIMPLE_SCRIPT_NAME_WITHOUT_FILE_EXTENSION}_backups/"
+
 # ░░░░░░░░░░░░░░░░░░░░░▓▓▓░░░░░░░░░░░░░░░░░░░░░░
 # ░░                                          ░░
 # ░░                                          ░░
-# ░░                FUNCTIONS                 ░░
+# ░░                  UTILS                   ░░
 # ░░                                          ░░
 # ░░                                          ░░
 # ░░░░░░░░░░░░░░░░░░░░░▓▓▓░░░░░░░░░░░░░░░░░░░░░░
 
-function dry_run_enabled {
+function is_dry_run_enabled {
     is_true "$ENABLE_DRY_RUN"
 }
+
+function contains_trailing_slash {
+    if is_var_not_empty "$1" && [[ "${1: -1}" == "/" ]]; then
+        return 0
+    fi
+    return 1
+}
+
+function check_file_creation {
+    local file=$1
+    log_debug_var "check_file_creation" "file"
+
+    if is_dry_run_enabled; then
+        log_dry_run "ls -larth $file"
+    else
+        if file_exists "$file"; then
+            log_info "File created: '$file'"
+        else
+            log_error "File creation failed: '$file'"
+        fi
+    fi
+}
+
+# ░░░░░░░░░░░░░░░░░░░░░▓▓▓░░░░░░░░░░░░░░░░░░░░░░
+# ░░                                          ░░
+# ░░                                          ░░
+# ░░                  LOGIC                   ░░
+# ░░                                          ░░
+# ░░                                          ░░
+# ░░░░░░░░░░░░░░░░░░░░░▓▓▓░░░░░░░░░░░░░░░░░░░░░░
 
 # Checks whether the user has root rights and if not, whether he is at least added to the 'docker' group.
 function check_permissions {
@@ -180,24 +211,6 @@ function check_permissions {
     fi
 }
 
-# Returns the Docker Compose command. So whether 'docker-compose' or 'docker compose'.
-function get_docker_compose_command {
-    if command -v docker-compose &>/dev/null; then
-        echo "docker-compose"
-    elif docker compose version &>/dev/null; then
-        echo "docker compose"
-    else
-        log_error "Neither 'docker-compose' nor 'docker compose' command found. Is it installed?"
-    fi
-}
-
-# Validates whether the docker compose command can also be executed by determining the version.
-function validate_docker_compose_command {
-    local version_output
-    version_output=$($DOCKER_COMPOSE_CMD version 2>&1) || log_error "Failed to execute '$DOCKER_COMPOSE_CMD version'. Error: $version_output"
-    log_info "$version_output"
-}
-
 # ╔═════════════════════╦══════════════════════╗
 # ║                                            ║
 # ║               GET ARGUMENTS                ║
@@ -205,9 +218,10 @@ function validate_docker_compose_command {
 # ╚═════════════════════╩══════════════════════╝
 
 _ARG_ACTION="${DEFAULT_ACTION}"
+
 _ARG_SEARCH_DIR="${DEFAULT_SEARCH_DIR}"
-_ARG_BACKUP_DIR="${DEFAULT_BACKUP_DIR}"
 _ARG_EXCLUDE_DIR="${DEFAULT_EXCLUDE_DIR}"
+_ARG_BACKUP_DIR="${DEFAULT_BACKUP_DIR}"
 
 function process_arguments {
     local arg_which_is_processed=""
@@ -264,13 +278,13 @@ function process_arguments {
             echo "                                  $note_for_valid_action_for_backup"
             echo "                                  Default: '${DEFAULT_SEARCH_DIR}'"
             echo
-            echo "  --backup-dir    [backup dir]    Destination directory for backups"
-            echo "                                  $note_for_valid_action_for_backup"
-            echo "                                  Default: '${DEFAULT_BACKUP_DIR}'"
-            echo
             echo "  --exclude-dir   [exclude dir]   Directory to exclude from search"
             echo "                                  $note_for_valid_action_for_backup"
             echo "                                  Default: '${DEFAULT_EXCLUDE_DIR}'"
+            echo
+            echo "  --backup-dir    [backup dir]    Destination directory for backups"
+            echo "                                  $note_for_valid_action_for_backup"
+            echo "                                  Default: '${DEFAULT_BACKUP_DIR}'"
 
             # shellcheck disable=SC2034
             ENABLE_SUMMARY_ON_EXIT=false
@@ -301,6 +315,8 @@ function process_arguments {
             ENABLE_LOG_TO_SYSTEM=false
             # shellcheck disable=SC2034
             ENABLE_SUMMARY_ON_EXIT=false
+
+            log_warn "Dry run is enabled!"
             ;;
         -a | --action)
             log_debug "'$1' selected"
@@ -331,18 +347,6 @@ function process_arguments {
             _ARG_SEARCH_DIR="$1"
             log_debug_var "process_arguments" "_ARG_SEARCH_DIR"
             ;;
-        --backup-dir)
-            log_debug "'$1' selected"
-            arg_which_is_processed="$1"
-            _is_used_without_action_backup
-            shift
-            _validate_if_value_is_argument "$1"
-
-            if is_var_empty "$1"; then log_error "'$arg_which_is_processed': Value must not be empty. If you want to use the default directory do not use this option."; fi
-
-            _ARG_BACKUP_DIR="$1"
-            log_debug_var "process_arguments" "_ARG_BACKUP_DIR"
-            ;;
         --exclude-dir)
             log_debug "'$1' selected"
             arg_which_is_processed="$1"
@@ -355,72 +359,24 @@ function process_arguments {
             _ARG_EXCLUDE_DIR="$1"
             log_debug_var "process_arguments" "_ARG_EXCLUDE_DIR"
             ;;
+        --backup-dir)
+            log_debug "'$1' selected"
+            arg_which_is_processed="$1"
+            _is_used_without_action_backup
+            shift
+            _validate_if_value_is_argument "$1"
+
+            if is_var_empty "$1"; then log_error "'$arg_which_is_processed': Value must not be empty. If you want to use the default directory do not use this option."; fi
+
+            _ARG_BACKUP_DIR="$1"
+            log_debug_var "process_arguments" "_ARG_BACKUP_DIR"
+            ;;
         *)
             log_error "Invalid argument: '$1'. $message_with_help_information"
             ;;
         esac
         shift
     done
-}
-
-# ╔═════════════════════╦══════════════════════╗
-# ║                                            ║
-# ║                DIRECTORIES                 ║
-# ║                                            ║
-# ╚═════════════════════╩══════════════════════╝
-
-function contains_trailing_slash {
-    if is_var_not_empty "$1" && [[ "${1: -1}" == "/" ]]; then
-        return 0
-    fi
-    return 1
-}
-
-function prepare_search_dir {
-    local search_dir="$_ARG_SEARCH_DIR"
-
-    if ! contains_trailing_slash "$search_dir"; then search_dir="${search_dir}/"; fi
-    if directory_not_exists "$search_dir"; then log_error "The specified search directory '$_ARG_SEARCH_DIR' could not be found"; fi
-
-    local absolute_search_dir
-    absolute_search_dir="$(realpath "$search_dir")/"
-
-    if is_var_not_equal "$search_dir" "$absolute_search_dir"; then
-        log_info "Replace search directory '${search_dir}' with the absolute path '${absolute_search_dir}'..."
-        search_dir="$absolute_search_dir"
-    fi
-
-    log_debug_var "prepare_search_dir" "search_dir"
-    _ARG_SEARCH_DIR="$search_dir"
-}
-
-function prepare_backup_dir {
-    local backup_dir="$_ARG_BACKUP_DIR"
-
-    if ! contains_trailing_slash "$backup_dir"; then backup_dir="${backup_dir}/"; fi
-
-    local final_backup_dir
-    final_backup_dir="${backup_dir}$(date +"%Y-%m-%d")/"
-
-    if directory_not_exists "$final_backup_dir"; then
-        if dry_run_enabled; then
-            log_dry_run "mkdir -p $final_backup_dir"
-        else
-            mkdir -p "$final_backup_dir" || log_error "Backup directory '$final_backup_dir' could not be created"
-            log_notice "Backup directory '$final_backup_dir' was created"
-        fi
-    fi
-
-    local absolute_backup_dir
-    absolute_backup_dir="$(realpath "$final_backup_dir")/"
-
-    if is_var_not_equal "$final_backup_dir" "$absolute_backup_dir"; then
-        log_info "Replace backup directory '${final_backup_dir}' with the absolute path '${absolute_backup_dir}'..."
-        final_backup_dir="$absolute_backup_dir"
-    fi
-
-    log_debug_var "prepare_backup_dir" "final_backup_dir"
-    _ARG_BACKUP_DIR="$final_backup_dir"
 }
 
 # ╔═════════════════════╦══════════════════════╗
@@ -445,13 +401,33 @@ function show_docker_info {
     log_delimiter_end 1 "DOCKER INFO"
 }
 
-# ╔═════════════════════╦══════════════════════╗
-# ║                                            ║
-# ║                   FILES                    ║
-# ║                                            ║
-# ╚═════════════════════╩══════════════════════╝
+# Returns the Docker Compose command. So whether 'docker-compose' or 'docker compose'.
+function get_docker_compose_command {
+    if command -v docker-compose &>/dev/null; then
+        echo "docker-compose"
+    elif docker compose version &>/dev/null; then
+        echo "docker compose"
+    else
+        log_error "Neither 'docker-compose' nor 'docker compose' command found. Is it installed?"
+    fi
+}
+
+function _set_docker_compose_cmd {
+    DOCKER_COMPOSE_CMD=$(get_docker_compose_command)
+    log_debug "'${DOCKER_COMPOSE_CMD}' is used"
+
+    local version_output
+    version_output=$($DOCKER_COMPOSE_CMD version 2>&1) || log_error "Failed to execute '$DOCKER_COMPOSE_CMD version'. Error: $version_output"
+    log_info "$version_output"
+}
 
 function find_docker_compose_files {
+    local search_dir="$1"
+    log_debug_var "find_docker_compose_files" "search_dir"
+
+    local exclude_dir="$2"
+    log_debug_var "find_docker_compose_files" "exclude_dir"
+
     local docker_compose_file_names=(
         "${DOCKER_COMPOSE_NAME}.yml"
         "${DOCKER_COMPOSE_NAME}.yaml"
@@ -460,26 +436,11 @@ function find_docker_compose_files {
     local docker_compose_files=""
 
     for name in "${docker_compose_file_names[@]}"; do
-        files=$(find "$_ARG_SEARCH_DIR" -path "*/${_ARG_EXCLUDE_DIR}/*" -prune -o -name "$name" -print 2>/dev/null)
+        files=$(find "$search_dir" -path "*/${exclude_dir}/*" -prune -o -name "$name" -print 2>/dev/null)
 
         if is_var_not_empty "$files"; then docker_compose_files+="$files"$'\n'; fi
     done
     echo "$docker_compose_files"
-}
-
-function check_file_creation {
-    local file=$1
-    log_debug_var "check_file_creation" "file"
-
-    if dry_run_enabled; then
-        log_dry_run "ls -larth $file"
-    else
-        if file_exists "$file"; then
-            log_info "File created: '$file'"
-        else
-            log_error "File creation failed: '$file'"
-        fi
-    fi
 }
 
 # ╔═════════════════════╦══════════════════════╗
@@ -490,7 +451,10 @@ function check_file_creation {
 
 # Creates a backup of a Docker Compose project folder by packing the files into a tar archive and then compressing them.
 function create_backup_file_for_single_docker_compose_project {
-    local file=$1
+    local backup_dir="$1"
+    log_debug_var "create_backup_file_for_single_docker_compose_project" "backup_dir"
+
+    local file=$2
     log_debug_var "create_backup_file_for_single_docker_compose_project" "file"
 
     local file_dir
@@ -498,23 +462,21 @@ function create_backup_file_for_single_docker_compose_project {
     log_debug_var "create_backup_file_for_single_docker_compose_project" "file_dir"
 
     local file_simple_dirname
-    file_simple_dirname=$(basename "$(dirname "$file")")
+    file_simple_dirname=$(basename "$file_dir")
     log_debug_var "create_backup_file_for_single_docker_compose_project" "file_simple_dirname"
-
-    final_backup_dir="$_ARG_BACKUP_DIR"
 
     local tar_file
     tar_file="$(date +"%Y-%m-%d_%H-%M-%S")_backup_${file_simple_dirname}.tar"
 
     local gz_file="${tar_file}.gz"
 
-    local tar_file_with_backup_dir="${final_backup_dir}${tar_file}"
-    local gz_file_with_backup_dir="${final_backup_dir}${gz_file}"
+    local tar_file_with_backup_dir="${backup_dir}${tar_file}"
+    local gz_file_with_backup_dir="${backup_dir}${gz_file}"
 
     log_message_part_for_undoing_file_creations="Skipping further backup actions and undoing file creations."
 
     log_info "TAR..."
-    if dry_run_enabled; then
+    if is_dry_run_enabled; then
         log_dry_run "tar -cpf $tar_file_with_backup_dir -C $file_dir ."
     else
         tar -cpf "$tar_file_with_backup_dir" -C "$file_dir" . ||
@@ -527,7 +489,7 @@ function create_backup_file_for_single_docker_compose_project {
     check_file_creation "$tar_file_with_backup_dir"
 
     log_info "GZIP..."
-    if dry_run_enabled; then
+    if is_dry_run_enabled; then
         log_dry_run "gzip $tar_file_with_backup_dir"
     else
         gzip "$tar_file_with_backup_dir" ||
@@ -540,14 +502,17 @@ function create_backup_file_for_single_docker_compose_project {
     check_file_creation "$gz_file_with_backup_dir"
 
     log_notice ">>> Backup created. You can download '${gz_file_with_backup_dir}' e.g. with FileZilla."
-    log_notice ">>> To navigate to the backup folder: 'cd ${final_backup_dir}'"
+    log_notice ">>> To navigate to the backup directory: 'cd ${backup_dir}'"
     log_notice ">>> To move the file: '(sudo) mv ${gz_file} /my/dir/for/${DOCKER_COMPOSE_NAME}-projects/${file_simple_dirname}/'"
     log_notice ">>> To undo gzip: '(sudo) gunzip ${gz_file}'"
     log_notice ">>> To unpack the tar file: '(sudo) tar -xpf ${tar_file}'"
 }
 
 function backup_single_docker_compose_project {
-    local file=$1
+    local backup_dir="$1"
+    log_debug_var "backup_single_docker_compose_project" "backup_dir"
+
+    local file=$2
     log_debug_var "backup_single_docker_compose_project" "file"
 
     local file_dir
@@ -555,7 +520,7 @@ function backup_single_docker_compose_project {
     log_debug_var "backup_single_docker_compose_project" "file_dir"
 
     local file_simple_dirname
-    file_simple_dirname=$(basename "$(dirname "$file")")
+    file_simple_dirname=$(basename "$file_dir")
     log_debug_var "backup_single_docker_compose_project" "file_simple_dirname"
 
     log_delimiter_start 2 "'${file}'"
@@ -565,12 +530,12 @@ function backup_single_docker_compose_project {
 
     function down {
         log_info "DOWN ('${file_simple_dirname}')..."
-        if dry_run_enabled; then log_dry_run "$DOCKER_COMPOSE_CMD down"; else log_notice "$($DOCKER_COMPOSE_CMD down)"; fi
+        if is_dry_run_enabled; then log_dry_run "$DOCKER_COMPOSE_CMD down"; else log_notice "$($DOCKER_COMPOSE_CMD down)"; fi
     }
 
     function up {
         log_info "UP ('${file_simple_dirname}')..."
-        if dry_run_enabled; then log_dry_run "$DOCKER_COMPOSE_CMD up -d"; else log_notice "$($DOCKER_COMPOSE_CMD up -d)"; fi
+        if is_dry_run_enabled; then log_dry_run "$DOCKER_COMPOSE_CMD up -d"; else log_notice "$($DOCKER_COMPOSE_CMD up -d)"; fi
     }
 
     local is_running=false
@@ -583,7 +548,7 @@ function backup_single_docker_compose_project {
 
     if $is_running; then down; else log_notice "Skip 'down' because it is not running"; fi
 
-    create_backup_file_for_single_docker_compose_project "$file"
+    create_backup_file_for_single_docker_compose_project "$backup_dir" "$file"
 
     if $is_running; then up; else log_notice "Skip 'up' because it was not running"; fi
 
@@ -591,29 +556,65 @@ function backup_single_docker_compose_project {
 }
 
 function backup_docker_compose_projects {
+    local search_dir="$1"
+    local exclude_dir="$2"
+    local backup_dir="$3"
+
+    function prepare_search_dir {
+        if ! contains_trailing_slash "$search_dir"; then search_dir="${search_dir}/"; fi
+
+        if directory_not_exists "$search_dir"; then log_error "The specified search directory '$search_dir' could not be found"; fi
+
+        local absolute_search_dir
+        absolute_search_dir="$(realpath "$search_dir")/"
+
+        if is_var_not_equal "$search_dir" "$absolute_search_dir"; then search_dir="$absolute_search_dir"; fi
+    }
+
+    function prepare_backup_dir {
+        if ! contains_trailing_slash "$backup_dir"; then backup_dir="${backup_dir}/"; fi
+
+        backup_dir="${backup_dir}$(date +"%Y-%m-%d")/"
+
+        if directory_not_exists "$backup_dir"; then
+            if is_dry_run_enabled; then
+                log_dry_run "mkdir -p $backup_dir"
+            else
+                mkdir -p "$backup_dir" || log_error "Backup directory '$backup_dir' could not be created"
+                log_notice "Backup directory '$backup_dir' was created"
+            fi
+        fi
+
+        local absolute_backup_dir
+        absolute_backup_dir="$(realpath "$backup_dir")/"
+
+        if is_var_not_equal "$backup_dir" "$absolute_backup_dir"; then backup_dir="$absolute_backup_dir"; fi
+    }
+
     log_delimiter_start 1 "BACKUP"
 
     prepare_search_dir
+    log_debug_var "backup_docker_compose_projects" "search_dir"
+    log_debug_var "backup_docker_compose_projects" "exclude_dir"
 
     local docker_compose_files
-    docker_compose_files=$(find_docker_compose_files)
+    docker_compose_files=$(find_docker_compose_files "$search_dir" "$exclude_dir")
 
     if [ -z "$docker_compose_files" ]; then
-        log_error "No ${DOCKER_COMPOSE_NAME} files found in '${_ARG_SEARCH_DIR}'. Cannot perform backup."
+        log_error "No ${DOCKER_COMPOSE_NAME} files found in '${search_dir}'. Cannot perform backup."
     else
         log_notice "${DOCKER_COMPOSE_NAME} files: "$'\n'"${docker_compose_files}"
     fi
 
     prepare_backup_dir
+    log_debug_var "backup_docker_compose_projects" "backup_dir"
 
     while IFS= read -r file; do
-        backup_single_docker_compose_project "$file"
+        backup_single_docker_compose_project "$backup_dir" "$file"
     done <<<"$docker_compose_files"
 
-    local final_backup_dir="$_ARG_BACKUP_DIR"
-
-    log_info "'${final_backup_dir}'..."
-    if dry_run_enabled; then log_dry_run "ls -larth $final_backup_dir"; else log_notice "$(ls -larth "$final_backup_dir")"; fi
+    log_info "'${backup_dir}'..."
+    if is_dry_run_enabled; then log_dry_run "ls -larth $backup_dir"; else log_notice "$(ls -larth "$backup_dir")"; fi
 
     log_delimiter_end 1 "BACKUP"
 }
@@ -644,13 +645,13 @@ function clean_docker_environment {
         log_delimiter_start 2 "REMOVE"
 
         log_notice "Removing non-running containers..."
-        if dry_run_enabled; then log_dry_run "docker container prune -f"; else log_notice "$(docker container prune -f)"; fi
+        if is_dry_run_enabled; then log_dry_run "docker container prune -f"; else log_notice "$(docker container prune -f)"; fi
 
         log_notice "Removing unused docker images..."
-        if dry_run_enabled; then log_dry_run "docker image prune -f"; else log_notice "$(docker image prune -f)"; fi
+        if is_dry_run_enabled; then log_dry_run "docker image prune -f"; else log_notice "$(docker image prune -f)"; fi
 
         log_notice "Removing unused volumes..."
-        if dry_run_enabled; then log_dry_run "docker volume prune -f"; else log_notice "$(docker volume prune -f)"; fi
+        if is_dry_run_enabled; then log_dry_run "docker volume prune -f"; else log_notice "$(docker volume prune -f)"; fi
 
         log_delimiter_end 2 "REMOVE"
     }
@@ -659,26 +660,6 @@ function clean_docker_environment {
     process_preview
     process_remove
     log_delimiter_end 1 "CLEAN"
-}
-
-# ╔═════════════════════╦══════════════════════╗
-# ║                                            ║
-# ║                  ACTIONS                   ║
-# ║                                            ║
-# ╚═════════════════════╩══════════════════════╝
-
-function perform_action {
-    local action=$_ARG_ACTION
-    log_debug_var "perform_action" "action"
-
-    case $action in
-    backup)
-        backup_docker_compose_projects
-        ;;
-    clean)
-        clean_docker_environment
-        ;;
-    esac
 }
 
 # ░░░░░░░░░░░░░░░░░░░░░▓▓▓░░░░░░░░░░░░░░░░░░░░░░
@@ -691,18 +672,23 @@ function perform_action {
 
 process_arguments "$@"
 
-if dry_run_enabled; then log_warn "Dry run is enabled!"; fi
-
 check_permissions
 
-DOCKER_COMPOSE_CMD=$(get_docker_compose_command)
-log_debug "'${DOCKER_COMPOSE_CMD}' is used"
-validate_docker_compose_command
+_set_docker_compose_cmd
 
 log_notice "Current directory: '$(pwd)'"
 
 show_docker_info
-perform_action
+
+case $_ARG_ACTION in
+backup)
+    backup_docker_compose_projects "$_ARG_SEARCH_DIR" "$_ARG_EXCLUDE_DIR" "$_ARG_BACKUP_DIR"
+    ;;
+clean)
+    clean_docker_environment
+    ;;
+esac
+
 show_docker_info
 
 exit 0
