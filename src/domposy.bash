@@ -19,15 +19,7 @@
 # DESCRIPTION:
 # This script simplifies your Docker Compose management.
 #
-# It can be sourced with:
-#
-# ```bash
-# source <path>/domposy.bash >/dev/null 2>&1
-# ```
-#
-# `<path>` should be replaced by the actual path where 'domposy' is located.
-#
-# But it is recommended to run it directly:
+# It is not intended to be sourced, but to be run directly.
 #
 # e.g.:
 # ```bash
@@ -735,6 +727,10 @@ function execute_backup {
     local exclude_dir="$2"
     local backup_dir="$3"
 
+    log_debug_var "execute_backup" "search_dir"
+    log_debug_var "execute_backup" "exclude_dir"
+    log_debug_var "execute_backup" "backup_dir"
+
     _backup_docker_compose_projects "$search_dir" "$exclude_dir" "$backup_dir"
 }
 
@@ -742,28 +738,23 @@ function execute_clean {
     clean_docker_environment
 }
 
-if is_current_script_sourced; then
-    print_colored_text "'$CONST_DOMPOSY_NAME' detected that it was sourced." "cyan" "regular"
-    _set_docker_compose_cmd
-else
-    _process_arguments "$@"
-    _check_permissions
-    _set_docker_compose_cmd
+_process_arguments "$@"
+_check_permissions
+_set_docker_compose_cmd
 
-    log_notice "Current directory: '$(pwd)'"
+log_notice "Current directory: '$(pwd)'"
 
-    show_docker_info
+show_docker_info
 
-    case $_ARG_ACTION in
-    backup)
-        execute_backup "$_ARG_SEARCH_DIR" "$_ARG_EXCLUDE_DIR" "$_ARG_BACKUP_DIR"
-        ;;
-    clean)
-        execute_clean
-        ;;
-    esac
+case $_ARG_ACTION in
+backup)
+    execute_backup "$_ARG_SEARCH_DIR" "$_ARG_EXCLUDE_DIR" "$_ARG_BACKUP_DIR"
+    ;;
+clean)
+    execute_clean
+    ;;
+esac
 
-    show_docker_info
-fi
+show_docker_info
 
 exit 0
