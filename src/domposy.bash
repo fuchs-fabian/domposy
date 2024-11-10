@@ -70,7 +70,7 @@ ORIGINAL_LOGGER_SCRIPT_PATH=$(find_bin_script "$LOGGER") ||
     }
 
 # shellcheck source=/dev/null
-source "$ORIGINAL_LOGGER_SCRIPT_PATH" ||
+source "$ORIGINAL_LOGGER_SCRIPT_PATH" >/dev/null 2>&1 ||
     {
         echo "Critical: Unable to source logger script '$ORIGINAL_LOGGER_SCRIPT_PATH'. Exiting..."
         exit 1
@@ -683,8 +683,6 @@ function perform_action {
 # ░░                                          ░░
 # ░░                                          ░░
 # ░░░░░░░░░░░░░░░░░░░░░▓▓▓░░░░░░░░░░░░░░░░░░░░░░
-
-print_colored_text "'$CONST_SIMPLE_SCRIPT_NAME_WITHOUT_FILE_EXTENSION' has started." "cyan" "regular"
 
 process_arguments "$@"
 
