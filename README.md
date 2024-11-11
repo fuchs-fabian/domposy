@@ -16,24 +16,22 @@
 
 ### What is `domposy`?
 
-`domposy` is a Linux Bash script that helps to backup Docker Compose containers (with bind mounts). In addition, it is possible to perform a secure Docker cleanup of resources that are no longer used.
+`domposy` is a Linux Bash script that helps to backup Docker Compose containers (with bind mounts).
 
-This involves searching for the Docker Compose folder, which then also contains the `.yml` file, the bind mounts that are important for the container itself and hopefully an `.env` file. 😜
+This involves searching for the Docker Compose folder, which then also contains the `.yml` file, the bind mounts that are important for the container itself and hopefully an `.env` file.
 
 This entire folder is then securely **tared** and then **compressed**. The backup is then located where you want it.
 
-Timestamps are also used for the backups. Help is also provided on how the backups can be reused. All important information is also logged. If no container is started or a backup is created, all Docker Compose containers are automatically started afterwards.
+Timestamps are used for the backups. Help is also provided on how the backups can be reused. All important information is logged.
 
-> It may be important to adjust the directories here.
-
-Finally, it is very easy to simply backup the whole thing to a NAS that has been mounted with NFS or SMB, for example.
+Finally, it is very easy to simply backup to a NAS that has been mounted with NFS or SMB, for example.
 
 > Only Docker Compose files named `docker-compose.yml` or `docker-compose.yaml` are used for search!
 
 Ideally, it has the following structure:
 
 ```plain
-<service-name>/
+<docker-compose-project-name>/
 │
 ├── docker-compose.yml
 │
@@ -42,7 +40,9 @@ Ideally, it has the following structure:
 └── volumes/
 ```
 
-Where the files are located is almost irrelevant. Ideally, there should be a folder containing all the services.
+Where the files are located is almost irrelevant. Ideally, there should be a folder containing all the Docker Compose projects.
+
+In addition, it is possible to perform a secure Docker cleanup of resources that are no longer used.
 
 **Examples for Docker Compose files**:
 
@@ -54,18 +54,6 @@ Where the files are located is almost irrelevant. Ideally, there should be a fol
 
 This script is ideal for homelab enthusiasts, but also for people who work a lot with Docker Compose files.
 
-> However, I do not currently recommend using it productively in a company.
-
-### The Goal of the `domposy` Project
-
-It is important to create backups. Unfortunately, it is not so easy for homelab enthusiasts in particular to do this easily and to run it as a cronjob. Again and again you have to write a script yourself, which is not so easy... To remedy this, there is exactly this. It is simply simple. It would be nice if Docker itself would provide such functionality in the future for exactly the kind of use case described above.
-
-## ⚠️ **Disclaimer - Important!**
-
-The whole thing is still at an early stage of development and can therefore lead to unexpected behaviour.
-
-> To be used with caution.
-
 ## Getting Started
 
 The easiest way is to download and run the [`setup.bash`](./setup.bash) script.
@@ -73,7 +61,7 @@ The easiest way is to download and run the [`setup.bash`](./setup.bash) script.
 > If you want to install it globally, you need root rights (sudo)!\
 > Otherwise, it will be only installed for the current user!
 
-The following command will download the script, make it executable, install the script and then delete it:
+The following command will download `domposy`, make it executable, install it and then delete the `setup.bash` script:
 
 ```bash
 wget -q -O setup.bash https://raw.githubusercontent.com/fuchs-fabian/domposy/refs/heads/main/setup.bash && \
@@ -82,7 +70,7 @@ chmod +x setup.bash && \
 rm setup.bash
 ```
 
-Then you can use the `domposy` command:
+Then you can use `domposy`:
 
 ```plain
 It is recommended to run the script with root rights to ensure that the backups work properly.
@@ -164,6 +152,10 @@ chmod +x setup.bash && \
 ./setup.bash update && \
 rm setup.bash
 ```
+
+#### Advanced update method
+
+You can simply navigate to the directory in which the script is cloned, remove the execution rights and pull it. Then you can make it executable again.
 
 ## Donate with [PayPal](https://www.paypal.com/donate/?hosted_button_id=4G9X8TDNYYNKG)
 
