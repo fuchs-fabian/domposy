@@ -83,7 +83,7 @@ declare -rx CONST_DEFAULT_SEARCH_DIR="/home/"
 declare -rx CONST_DEFAULT_EXCLUDE_DIR="tmp"
 declare -rx CONST_DEFAULT_BACKUP_DIR="/tmp/${CONST_DOMPOSY_NAME}/backups/"
 
-declare -rx CONST_DEFAULT_LOG_DIR="/tmp/${CONST_DOMPOSY_NAME}/logs/"
+declare -rx CONST_DEFAULT_LOG_DIR="/tmp/logs/"
 
 # ░░░░░░░░░░░░░░░░░░░░░▓▓▓░░░░░░░░░░░░░░░░░░░░░░
 # ░░                                          ░░
@@ -365,6 +365,10 @@ function _process_arguments {
             echo "  --log-dir       [log dir]       Directory for log files"
             echo "                                  Default: '$CONST_DEFAULT_LOG_DIR'"
             echo
+            echo "  --enable-system-logging         Enables logging to the system"
+            echo "                                  Important: Only logs warnings or more severe messages"
+            echo "                                  Default: false"
+            echo
             echo "  --notifier      [notifier]      '$CONST_SIMBASHLOG_NAME' notifier ($CONST_SIMBASHLOG_NOTIFIERS_GITHUB_LINK)"
             echo "                                  Important: The notifier must be correctly installed"
             echo "                                  Default: none"
@@ -461,6 +465,11 @@ function _process_arguments {
             # shellcheck disable=SC2034
             LOG_DIR="$1"
             log_debug_var "_process_arguments" "LOG_DIR"
+            ;;
+        --enable-system-logging)
+            log_debug "'$1' selected"
+            # shellcheck disable=SC2034
+            ENABLE_LOG_TO_SYSTEM=true
             ;;
         --notifier)
             log_debug "'$1' selected"
