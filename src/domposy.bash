@@ -59,6 +59,35 @@ declare -rx CONST_DOMPOSY_NAME="domposy"
 # ░░░░░░░░░░░░░░░░░░░░░▓▓▓░░░░░░░░░░░░░░░░░░░░░░
 # ░░                                          ░░
 # ░░                                          ░░
+# ░░                VARIABLES                 ░░
+# ░░                                          ░░
+# ░░                                          ░░
+# ░░░░░░░░░░░░░░░░░░░░░▓▓▓░░░░░░░░░░░░░░░░░░░░░░
+
+declare -x ENABLE_DRY_RUN=false
+declare -x DOCKER_COMPOSE_CMD=""
+
+# ░░░░░░░░░░░░░░░░░░░░░▓▓▓░░░░░░░░░░░░░░░░░░░░░░
+# ░░                                          ░░
+# ░░                                          ░░
+# ░░                CONSTANTS                 ░░
+# ░░                                          ░░
+# ░░                                          ░░
+# ░░░░░░░░░░░░░░░░░░░░░▓▓▓░░░░░░░░░░░░░░░░░░░░░░
+
+declare -rx CONST_DOCKER_COMPOSE_NAME="docker-compose"
+
+declare -rx CONST_DEFAULT_ACTION="backup"
+
+declare -rx CONST_DEFAULT_SEARCH_DIR="/home/"
+declare -rx CONST_DEFAULT_EXCLUDE_DIR="tmp"
+declare -rx CONST_DEFAULT_BACKUP_DIR="/tmp/${CONST_DOMPOSY_NAME}/backups/"
+
+declare -rx CONST_DEFAULT_LOG_DIR="/tmp/${CONST_DOMPOSY_NAME}/logs/"
+
+# ░░░░░░░░░░░░░░░░░░░░░▓▓▓░░░░░░░░░░░░░░░░░░░░░░
+# ░░                                          ░░
+# ░░                                          ░░
 # ░░              GENERAL UTILS               ░░
 # ░░                                          ░░
 # ░░                                          ░░
@@ -123,7 +152,7 @@ ENABLE_JSON_LOG_FILE=false
 # shellcheck disable=SC2034
 ENABLE_LOG_TO_SYSTEM=false
 # shellcheck disable=SC2034
-LOG_DIR="/tmp/simbashlogs/"
+LOG_DIR="$CONST_DEFAULT_LOG_DIR"
 # shellcheck disable=SC2034
 ENABLE_SIMPLE_LOG_DIR_STRUCTURE=true
 # shellcheck disable=SC2034
@@ -142,6 +171,10 @@ ENABLE_DATE_IN_CONSOLE_OUTPUTS_FOR_LOGGING=true
 SHOW_CURRENT_SCRIPT_NAME_IN_CONSOLE_OUTPUTS_FOR_LOGGING="simple_without_file_extension"
 # shellcheck disable=SC2034
 ENABLE_PARENT_SCRIPT_NAME_IN_CONSOLE_OUTPUTS_FOR_LOGGING=false
+# shellcheck disable=SC2034
+SIMBASHLOG_NOTIFIER=""
+# shellcheck disable=SC2034
+SIMBASHLOG_NOTIFIER_CONFIG_PATH=""
 # shellcheck disable=SC2034
 ENABLE_SUMMARY_ON_EXIT=true
 
@@ -191,25 +224,6 @@ function log_delimiter_end {
 # ░░░░░░░░░░░░░░░░░░░░░▓▓▓░░░░░░░░░░░░░░░░░░░░░░
 # ░░                                          ░░
 # ░░                                          ░░
-# ░░                VARIABLES                 ░░
-# ░░                                          ░░
-# ░░                                          ░░
-# ░░░░░░░░░░░░░░░░░░░░░▓▓▓░░░░░░░░░░░░░░░░░░░░░░
-
-declare -x ENABLE_DRY_RUN=false
-
-declare -rx CONST_DOCKER_COMPOSE_NAME="docker-compose"
-declare -x DOCKER_COMPOSE_CMD=""
-
-declare -rx CONST_DEFAULT_ACTION="backup"
-
-declare -rx CONST_DEFAULT_SEARCH_DIR="/home/"
-declare -rx CONST_DEFAULT_EXCLUDE_DIR="tmp"
-declare -rx CONST_DEFAULT_BACKUP_DIR="/tmp/${CONST_SIMPLE_SCRIPT_NAME_WITHOUT_FILE_EXTENSION}_backups/"
-
-# ░░░░░░░░░░░░░░░░░░░░░▓▓▓░░░░░░░░░░░░░░░░░░░░░░
-# ░░                                          ░░
-# ░░                                          ░░
 # ░░                  UTILS                   ░░
 # ░░                                          ░░
 # ░░                                          ░░
@@ -217,6 +231,12 @@ declare -rx CONST_DEFAULT_BACKUP_DIR="/tmp/${CONST_SIMPLE_SCRIPT_NAME_WITHOUT_FI
 
 function _is_dry_run_enabled {
     is_true "$ENABLE_DRY_RUN"
+}
+
+function _disable_notifier {
+    log_debug "Notifier is disabled"
+    # shellcheck disable=SC2034
+    SIMBASHLOG_NOTIFIER=""
 }
 
 # Checks if a var contains a trailing slash.
@@ -298,6 +318,11 @@ function _process_arguments {
         _validate_if_value_is_long_argument "$value"
     }
 
+    function _log_error_if_value_is_empty {
+        local value="$1"
+        if is_var_empty "$value"; then log_error "'$arg_which_is_processed': Value must not be empty. If you want to use the default value do not use this option."; fi
+    }
+
     local note_for_valid_action_for_backup="Note: '-a, --action' should be used before this, otherwise it has no effect"
     local is_action_backup_used=false
     function _is_used_without_action_backup {
@@ -323,19 +348,26 @@ function _process_arguments {
             echo
             echo "  -a, --action    [action]        Action to be performed"
             echo "                                  {backup,clean}"
-            echo "                                  Default: '${CONST_DEFAULT_ACTION}'"
+            echo "                                  Default: '$CONST_DEFAULT_ACTION'"
             echo
-            echo "  --search-dir    [search dir]    Directory to search for ${CONST_DOCKER_COMPOSE_NAME} files"
+            echo "  --search-dir    [search dir]    Directory to search for $CONST_DOCKER_COMPOSE_NAME files"
             echo "                                  $note_for_valid_action_for_backup"
-            echo "                                  Default: '${CONST_DEFAULT_SEARCH_DIR}'"
+            echo "                                  Default: '$CONST_DEFAULT_SEARCH_DIR'"
             echo
             echo "  --exclude-dir   [exclude dir]   Directory to exclude from search"
             echo "                                  $note_for_valid_action_for_backup"
-            echo "                                  Default: '${CONST_DEFAULT_EXCLUDE_DIR}'"
+            echo "                                  Default: '$CONST_DEFAULT_EXCLUDE_DIR'"
             echo
             echo "  --backup-dir    [backup dir]    Destination directory for backups"
             echo "                                  $note_for_valid_action_for_backup"
-            echo "                                  Default: '${CONST_DEFAULT_BACKUP_DIR}'"
+            echo "                                  Default: '$CONST_DEFAULT_BACKUP_DIR'"
+            echo
+            echo "  --log-dir       [log dir]       Directory for log files"
+            echo "                                  Default: '$CONST_DEFAULT_LOG_DIR'"
+            echo
+            echo "  --notifier      [notifier]      '$CONST_SIMBASHLOG_NAME' notifier ($CONST_SIMBASHLOG_NOTIFIERS_GITHUB_LINK)"
+            echo "                                  Important: The notifier must be correctly installed"
+            echo "                                  Default: none"
 
             # shellcheck disable=SC2034
             ENABLE_SUMMARY_ON_EXIT=false
@@ -392,8 +424,7 @@ function _process_arguments {
             _is_used_without_action_backup
             shift
             _validate_if_value_is_argument "$1"
-
-            if is_var_empty "$1"; then log_error "'$arg_which_is_processed': Value must not be empty. If you want to use the default directory do not use this option."; fi
+            _log_error_if_value_is_empty "$1"
 
             _ARG_SEARCH_DIR="$1"
             log_debug_var "_process_arguments" "_ARG_SEARCH_DIR"
@@ -404,8 +435,7 @@ function _process_arguments {
             _is_used_without_action_backup
             shift
             _validate_if_value_is_argument "$1"
-
-            if is_var_empty "$1"; then log_error "'$arg_which_is_processed': Value must not be empty. If you do not want to exclude any directory do not use this option."; fi
+            _log_error_if_value_is_empty "$1"
 
             _ARG_EXCLUDE_DIR="$1"
             log_debug_var "_process_arguments" "_ARG_EXCLUDE_DIR"
@@ -416,11 +446,32 @@ function _process_arguments {
             _is_used_without_action_backup
             shift
             _validate_if_value_is_argument "$1"
-
-            if is_var_empty "$1"; then log_error "'$arg_which_is_processed': Value must not be empty. If you want to use the default directory do not use this option."; fi
+            _log_error_if_value_is_empty "$1"
 
             _ARG_BACKUP_DIR="$1"
             log_debug_var "_process_arguments" "_ARG_BACKUP_DIR"
+            ;;
+        --log-dir)
+            log_debug "'$1' selected"
+            arg_which_is_processed="$1"
+            shift
+            _validate_if_value_is_argument "$1"
+            _log_error_if_value_is_empty "$1"
+
+            # shellcheck disable=SC2034
+            LOG_DIR="$1"
+            log_debug_var "_process_arguments" "LOG_DIR"
+            ;;
+        --notifier)
+            log_debug "'$1' selected"
+            arg_which_is_processed="$1"
+            shift
+            _validate_if_value_is_argument "$1"
+            _log_error_if_value_is_empty "$1"
+
+            # shellcheck disable=SC2034
+            SIMBASHLOG_NOTIFIER="$1"
+            log_debug_var "_process_arguments" "SIMBASHLOG_NOTIFIER"
             ;;
         *)
             log_error "Invalid argument: '$1'. $message_with_help_information"
@@ -721,6 +772,9 @@ function clean_docker_environment {
 # ░░░░░░░░░░░░░░░░░░░░░▓▓▓░░░░░░░░░░░░░░░░░░░░░░
 
 _process_arguments "$@"
+
+if _is_dry_run_enabled; then _disable_notifier; fi
+
 _check_permissions
 _set_docker_compose_cmd
 
