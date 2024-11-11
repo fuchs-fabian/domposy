@@ -9,10 +9,10 @@
 # ░░░░░░░░░░░░░░░░░░░░░▓▓▓░░░░░░░░░░░░░░░░░░░░░░
 
 declare -r CONST_APP_NAME="domposy"
-declare -r CONST_APP_BRANCH_NAME="v2"
+declare -r CONST_APP_BRANCH_NAME="main"
 
 declare -r CONST_LOGGER_NAME="simbashlog"
-declare -r CONST_LOGGER_BRANCH_NAME="v1.1.3"
+declare -r CONST_LOGGER_BRANCH_NAME="main"
 
 declare -r CONST_GLOBAL_DOWNLOAD_PATH="/opt"
 declare -r CONST_GLOBAL_BIN_PATH="/usr/bin"
