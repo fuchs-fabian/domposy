@@ -68,17 +68,102 @@ The whole thing is still at an early stage of development and can therefore lead
 
 ## Getting Started
 
-The easiest way is to download and run the setup.bash script.
+The easiest way is to download and run the [`setup.bash`](./setup.bash) script.
 
-<!--
-TODO: Add help output
--->
+> If you want to install it globally, you need root rights (sudo)!\
+> Otherwise, it will be only installed for the current user!
+
+The following command will download the script, make it executable, install the script and then delete it:
+
+```bash
+wget -q -O setup.bash https://raw.githubusercontent.com/fuchs-fabian/domposy/refs/heads/main/setup.bash && \
+chmod +x setup.bash && \
+./setup.bash install && \
+rm setup.bash
+```
+
+Then you can use the `domposy` command:
+
+```plain
+It is recommended to run the script with root rights to ensure that the backups work properly.
+
+Usage: (sudo) domposy
+
+  -h, --help                      Show help
+
+  -v, --version                   Show version
+
+  -d, --debug                     Enables debug logging
+
+  -n, --dry-run                   Executes a dry run, i.e. no changes are made to the file system
+
+  -a, --action    [action]        Action to be performed
+                                  {backup,clean}
+                                  Default: 'backup'
+
+  --search-dir    [search dir]    Directory to search for docker-compose files
+                                  Note: '-a, --action' should be used before this, otherwise it has no effect
+                                  Default: '/home/'
+
+  --exclude-dir   [exclude dir]   Directory to exclude from search
+                                  Note: '-a, --action' should be used before this, otherwise it has no effect
+                                  Default: 'tmp'
+
+  --backup-dir    [backup dir]    Destination directory for backups
+                                  Note: '-a, --action' should be used before this, otherwise it has no effect
+                                  Default: '/tmp/domposy/backups/'
+
+  --log-dir       [log dir]       Directory for log files
+                                  Default: '/tmp/domposy/logs/'
+
+  --notifier      [notifier]      'simbashlog' notifier (https://github.com/fuchs-fabian/simbashlog-notifiers)
+                                  Important: The notifier must be correctly installed
+                                  Default: none
+```
 
 ### Example
 
-<!--
-TODO: Add example call
--->
+```bash
+domposy --action backup --search-dir /home/ --exclude-dir git --backup-dir /tmp/domposy/backups/ --log-dir /var/log/
+```
+
+### Uninstall
+
+If you want to uninstall the script, navigate to the directory where the `setup.bash` script is located, make it executable and run it with the `uninstall` argument:
+
+```bash
+./setup.bash uninstall
+```
+
+> If the script was installed globally, you need root rights (sudo) to uninstall it!
+
+If you can't find the `setup.bash` script anymore, you can execute the following command:
+
+```bash
+wget -q -O setup.bash https://raw.githubusercontent.com/fuchs-fabian/domposy/refs/heads/main/setup.bash && \
+chmod +x setup.bash && \
+./setup.bash uninstall && \
+rm setup.bash
+```
+
+### Update
+
+If you want to update the script, navigate to the directory where the `setup.bash` script is located, make it executable and run it with the `update` argument:
+
+```bash
+./setup.bash update
+```
+
+> If the script was installed globally, you need root rights (sudo) to update it!
+
+If you can't find the `setup.bash` script anymore, you can execute the following command:
+
+```bash
+wget -q -O setup.bash https://raw.githubusercontent.com/fuchs-fabian/domposy/refs/heads/main/setup.bash && \
+chmod +x setup.bash && \
+./setup.bash update && \
+rm setup.bash
+```
 
 ## Donate with [PayPal](https://www.paypal.com/donate/?hosted_button_id=4G9X8TDNYYNKG)
 
@@ -90,10 +175,6 @@ If you think this tool is useful and saves you a lot of work and nerves and lets
   -->
   <img src="https://raw.githubusercontent.com/stefan-niedermann/paypal-donate-button/master/paypal-donate-button.png" style="height: 90px; width: 217px;" alt="Donate with PayPal"/>
 </a>
-
-## This might also interest you
-
-[`esase`](https://github.com/fuchs-fabian/esase): Easy Setup And System Enhancement (Popup based Linux Bash script/tool)
 
 ---
 
