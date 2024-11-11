@@ -604,7 +604,7 @@ function _backup_single_docker_compose_project {
     log_delimiter_end 2 "'${file}'"
 }
 
-function _backup_docker_compose_projects {
+function backup_docker_compose_projects {
     local search_dir="$1"
     local exclude_dir="$2"
     local backup_dir="$3"
@@ -643,8 +643,8 @@ function _backup_docker_compose_projects {
     log_delimiter_start 1 "BACKUP"
 
     prepare_search_dir
-    log_debug_var "_backup_docker_compose_projects" "search_dir"
-    log_debug_var "_backup_docker_compose_projects" "exclude_dir"
+    log_debug_var "backup_docker_compose_projects" "search_dir"
+    log_debug_var "backup_docker_compose_projects" "exclude_dir"
 
     local docker_compose_files
     docker_compose_files=$(_find_docker_compose_files "$search_dir" "$exclude_dir")
@@ -656,7 +656,7 @@ function _backup_docker_compose_projects {
     fi
 
     prepare_backup_dir
-    log_debug_var "_backup_docker_compose_projects" "backup_dir"
+    log_debug_var "backup_docker_compose_projects" "backup_dir"
 
     while IFS= read -r file; do
         _backup_single_docker_compose_project "$backup_dir" "$file"
@@ -675,7 +675,7 @@ function _backup_docker_compose_projects {
 # ╚═════════════════════╩══════════════════════╝
 
 # Cleans the Docker environment by removing non-running containers, unused images and volumes.
-function _clean_docker_environment {
+function clean_docker_environment {
     function _process_preview {
         log_delimiter_start 2 "PREVIEW"
 
@@ -720,22 +720,6 @@ function _clean_docker_environment {
 # ░░                                          ░░
 # ░░░░░░░░░░░░░░░░░░░░░▓▓▓░░░░░░░░░░░░░░░░░░░░░░
 
-function execute_backup {
-    local search_dir="$1"
-    local exclude_dir="$2"
-    local backup_dir="$3"
-
-    log_debug_var "execute_backup" "search_dir"
-    log_debug_var "execute_backup" "exclude_dir"
-    log_debug_var "execute_backup" "backup_dir"
-
-    _backup_docker_compose_projects "$search_dir" "$exclude_dir" "$backup_dir"
-}
-
-function execute_clean {
-    _clean_docker_environment
-}
-
 _process_arguments "$@"
 _check_permissions
 _set_docker_compose_cmd
@@ -746,10 +730,10 @@ show_docker_info
 
 case $_ARG_ACTION in
 backup)
-    execute_backup "$_ARG_SEARCH_DIR" "$_ARG_EXCLUDE_DIR" "$_ARG_BACKUP_DIR"
+    backup_docker_compose_projects "$_ARG_SEARCH_DIR" "$_ARG_EXCLUDE_DIR" "$_ARG_BACKUP_DIR"
     ;;
 clean)
-    execute_clean
+    clean_docker_environment
     ;;
 esac
 
