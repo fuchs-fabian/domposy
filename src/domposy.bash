@@ -93,6 +93,12 @@ declare -rx CONST_DEFAULT_LOG_DIR="/tmp/logs/"
 # ░░                                          ░░
 # ░░░░░░░░░░░░░░░░░░░░░▓▓▓░░░░░░░░░░░░░░░░░░░░░░
 
+function abort {
+    echo "ERROR: $1"
+    echo "Aborting..."
+    exit 1
+}
+
 function find_bin_script {
     local script_name="$1"
     local bin_paths=(
@@ -132,18 +138,13 @@ function find_bin_script {
 declare -rx CONST_LOGGER_NAME="simbashlog"
 
 CONST_ORIGINAL_LOGGER_SCRIPT_PATH=$(find_bin_script "$CONST_LOGGER_NAME") ||
-    {
-        echo "Critical: Unable to resolve logger script '$CONST_LOGGER_NAME'. Exiting..."
-        exit 1
-    }
+    abort "Unable to resolve logger script '$CONST_LOGGER_NAME'"
+
 declare -rx CONST_ORIGINAL_LOGGER_SCRIPT_PATH
 
 # shellcheck source=/dev/null
 source "$CONST_ORIGINAL_LOGGER_SCRIPT_PATH" >/dev/null 2>&1 ||
-    {
-        echo "Critical: Unable to source logger script '$CONST_ORIGINAL_LOGGER_SCRIPT_PATH'. Exiting..."
-        exit 1
-    }
+    abort "Unable to source logger script '$CONST_ORIGINAL_LOGGER_SCRIPT_PATH'"
 
 # shellcheck disable=SC2034
 ENABLE_LOG_FILE=true
@@ -187,7 +188,7 @@ function log_dry_run {
     log_notice "Dry run is enabled. Skipping '$1'"
 }
 
-function log_delimiter {
+function log_debug_delimiter {
     local level="$1"
     local text="$2"
     local char="$3"
@@ -210,15 +211,15 @@ function log_delimiter {
         text=$(to_uppercase "$text")
     fi
 
-    log_info "$separator ${text} $separator"
+    log_debug "$separator ${text} $separator"
 }
 
-function log_delimiter_start {
-    log_delimiter "$1" "$2" ">" false
+function log_debug_delimiter_start {
+    log_debug_delimiter "$1" "$2" ">" false
 }
 
-function log_delimiter_end {
-    log_delimiter "$1" "$2" "<" false
+function log_debug_delimiter_end {
+    log_debug_delimiter "$1" "$2" "<" false
 }
 
 # ░░░░░░░░░░░░░░░░░░░░░▓▓▓░░░░░░░░░░░░░░░░░░░░░░
@@ -498,7 +499,7 @@ function _process_arguments {
 
 # Shows Docker information like disk usage, running containers, images etc.
 function show_docker_info {
-    log_delimiter_start 1 "DOCKER INFO"
+    log_debug_delimiter_start 1 "DOCKER INFO"
     log_info "docker system df..."
     log_notice "$(docker system df)"
 
@@ -510,7 +511,7 @@ function show_docker_info {
 
     log_info "docker images..."
     log_notice "$(docker images)"
-    log_delimiter_end 1 "DOCKER INFO"
+    log_debug_delimiter_end 1 "DOCKER INFO"
 }
 
 # Returns the Docker Compose command. So whether 'docker-compose' or 'docker compose'.
@@ -632,7 +633,7 @@ function _backup_single_docker_compose_project {
     file_simple_dirname=$(basename "$file_dir")
     log_debug_var "_backup_single_docker_compose_project" "file_simple_dirname"
 
-    log_delimiter_start 2 "'${file}'"
+    log_debug_delimiter_start 2 "'${file}'"
 
     cd "${file_dir}" || log_error "Failed to change directory to '${file_dir}'"
     log_notice "Changed directory to '$(pwd)'"
@@ -657,11 +658,12 @@ function _backup_single_docker_compose_project {
 
     if $is_running; then _down; else log_notice "Skip 'down' because it is not running"; fi
 
+    log_info "Creating backup for '${file}'..."
     _create_backup_file_for_single_docker_compose_project "$backup_dir" "$file"
 
     if $is_running; then _up; else log_notice "Skip 'up' because it was not running"; fi
 
-    log_delimiter_end 2 "'${file}'"
+    log_debug_delimiter_end 2 "'${file}'"
 }
 
 function backup_docker_compose_projects {
@@ -700,7 +702,7 @@ function backup_docker_compose_projects {
         if is_var_not_equal "$backup_dir" "$absolute_backup_dir"; then backup_dir="$absolute_backup_dir"; fi
     }
 
-    log_delimiter_start 1 "BACKUP"
+    log_debug_delimiter_start 1 "BACKUP"
 
     prepare_search_dir
     log_debug_var "backup_docker_compose_projects" "search_dir"
@@ -725,7 +727,7 @@ function backup_docker_compose_projects {
     log_info "'${backup_dir}'..."
     if _is_dry_run_enabled; then log_dry_run "ls -larth $backup_dir"; else log_notice "$(ls -larth "$backup_dir")"; fi
 
-    log_delimiter_end 1 "BACKUP"
+    log_debug_delimiter_end 1 "BACKUP"
 }
 
 # ╔═════════════════════╦══════════════════════╗
@@ -737,7 +739,7 @@ function backup_docker_compose_projects {
 # Cleans the Docker environment by removing non-running containers, unused images and volumes.
 function clean_docker_environment {
     function _process_preview {
-        log_delimiter_start 2 "PREVIEW"
+        log_debug_delimiter_start 2 "PREVIEW"
 
         log_info "Listing non-running containers..."
         log_notice "$(docker ps -a --filter status=created --filter status=restarting --filter status=paused --filter status=exited --filter status=dead)"
@@ -748,11 +750,11 @@ function clean_docker_environment {
         log_info "Listing unused volumes..."
         log_notice "$(docker volume ls --filter dangling=true)"
 
-        log_delimiter_end 2 "PREVIEW"
+        log_debug_delimiter_end 2 "PREVIEW"
     }
 
     function _process_remove {
-        log_delimiter_start 2 "REMOVE"
+        log_debug_delimiter_start 2 "REMOVE"
 
         log_notice "Removing non-running containers..."
         if _is_dry_run_enabled; then log_dry_run "docker container prune -f"; else log_notice "$(docker container prune -f)"; fi
@@ -763,13 +765,13 @@ function clean_docker_environment {
         log_notice "Removing unused volumes..."
         if _is_dry_run_enabled; then log_dry_run "docker volume prune -f"; else log_notice "$(docker volume prune -f)"; fi
 
-        log_delimiter_end 2 "REMOVE"
+        log_debug_delimiter_end 2 "REMOVE"
     }
 
-    log_delimiter_start 1 "CLEAN"
+    log_debug_delimiter_start 1 "CLEAN"
     _process_preview
     _process_remove
-    log_delimiter_end 1 "CLEAN"
+    log_debug_delimiter_end 1 "CLEAN"
 }
 
 # ░░░░░░░░░░░░░░░░░░░░░▓▓▓░░░░░░░░░░░░░░░░░░░░░░
