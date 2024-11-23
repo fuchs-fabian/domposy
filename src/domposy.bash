@@ -53,7 +53,7 @@
 # ░░                                          ░░
 # ░░░░░░░░░░░░░░░░░░░░░▓▓▓░░░░░░░░░░░░░░░░░░░░░░
 
-declare -rx CONST_DOMPOSY_VERSION="2.1.0"
+declare -rx CONST_DOMPOSY_VERSION="2.2.0"
 declare -rx CONST_DOMPOSY_NAME="domposy"
 
 # ░░░░░░░░░░░░░░░░░░░░░▓▓▓░░░░░░░░░░░░░░░░░░░░░░
@@ -378,6 +378,8 @@ function _process_arguments {
             echo "  --notifier      [notifier]      '$CONST_SIMBASHLOG_NAME' notifier ($CONST_SIMBASHLOG_NOTIFIERS_GITHUB_LINK)"
             echo "                                  Important: The notifier must be correctly installed"
             echo "                                  Default: none"
+            echo
+            echo "  --disable-summary-on-exit       Disables the summary on exit"
 
             # shellcheck disable=SC2034
             ENABLE_SUMMARY_ON_EXIT=false
@@ -498,6 +500,12 @@ function _process_arguments {
             SIMBASHLOG_NOTIFIER="$1"
             log_debug_var "_process_arguments" "SIMBASHLOG_NOTIFIER"
             ;;
+        --disable-summary-on-exit)
+            log_debug "'$1' selected"
+
+            # shellcheck disable=SC2034
+            ENABLE_SUMMARY_ON_EXIT=false
+            ;;
         *)
             # shellcheck disable=SC2034
             ENABLE_SUMMARY_ON_EXIT=false
@@ -538,13 +546,19 @@ function get_docker_compose_cmd {
         echo "docker-compose"
     elif docker compose version &>/dev/null; then
         echo "docker compose"
-    else
-        log_error "Neither 'docker-compose' nor 'docker compose' command found. Is it installed?"
     fi
 }
 
 function _set_docker_compose_cmd {
-    DOCKER_COMPOSE_CMD=$(get_docker_compose_cmd)
+    local docker_compose_cmd
+    docker_compose_cmd=$(get_docker_compose_cmd)
+
+    if is_var_empty "$docker_compose_cmd"; then
+        log_error "No Docker Compose command found. Please install 'docker-compose' or 'docker compose'."
+    fi
+
+    DOCKER_COMPOSE_CMD="$docker_compose_cmd"
+
     log_debug "'${DOCKER_COMPOSE_CMD}' is used"
 
     local version_output

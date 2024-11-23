@@ -110,6 +110,8 @@ Usage: (sudo) domposy
   --notifier      [notifier]      'simbashlog' notifier (https://github.com/fuchs-fabian/simbashlog-notifiers)
                                   Important: The notifier must be correctly installed
                                   Default: none
+
+  --disable-summary-on-exit       Disables the summary on exit
 ```
 
 ### Example
