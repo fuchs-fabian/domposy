@@ -816,7 +816,7 @@ function _delete_old_files {
     log_info "Processing directory '$dir' for deletion of old files (keep: $keep_files)..."
 
     # Get all files sorted by date
-    mapfile -t files < <(ls -dt "$dir")
+    mapfile -t files < <(ls -dt "$dir"*)
 
     if is_var_empty "${files[*]}"; then
         log_warn "No files found in '$dir'. Skipping deletion of old files."
@@ -827,7 +827,7 @@ function _delete_old_files {
 
     log_debug "Files in '$dir' (number: $number_of_files):"
     for file in "${files[@]}"; do
-        log_debug "- '$file'"
+        log_debug "'$file'"
     done
 
     if ((${#files[@]} > keep_files)); then
