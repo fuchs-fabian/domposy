@@ -53,7 +53,7 @@
 # ░░                                          ░░
 # ░░░░░░░░░░░░░░░░░░░░░▓▓▓░░░░░░░░░░░░░░░░░░░░░░
 
-declare -rx CONST_DOMPOSY_VERSION="2.0.0"
+declare -rx CONST_DOMPOSY_VERSION="2.1.0"
 declare -rx CONST_DOMPOSY_NAME="domposy"
 
 # ░░░░░░░░░░░░░░░░░░░░░▓▓▓░░░░░░░░░░░░░░░░░░░░░░
