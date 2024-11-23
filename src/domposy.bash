@@ -538,13 +538,19 @@ function get_docker_compose_cmd {
         echo "docker-compose"
     elif docker compose version &>/dev/null; then
         echo "docker compose"
-    else
-        log_error "Neither 'docker-compose' nor 'docker compose' command found. Is it installed?"
     fi
 }
 
 function _set_docker_compose_cmd {
-    DOCKER_COMPOSE_CMD=$(get_docker_compose_cmd)
+    local docker_compose_cmd
+    docker_compose_cmd=$(get_docker_compose_cmd)
+
+    if is_var_empty "$docker_compose_cmd"; then
+        log_error "No Docker Compose command found. Please install 'docker-compose' or 'docker compose'."
+    fi
+
+    DOCKER_COMPOSE_CMD="$docker_compose_cmd"
+
     log_debug "'${DOCKER_COMPOSE_CMD}' is used"
 
     local version_output
