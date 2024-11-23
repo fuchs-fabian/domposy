@@ -274,7 +274,7 @@ function check_file_creation {
 # ░░░░░░░░░░░░░░░░░░░░░▓▓▓░░░░░░░░░░░░░░░░░░░░░░
 
 function _check_permissions {
-    log_notice "Current user: '$(whoami)'"
+    log_info "Current user: '$(whoami)'"
     if [[ $(id -u) -ne 0 ]]; then
         if groups "$(whoami)" | grep -q '\bdocker\b'; then
             log_warn "You do not have root rights. If you want to create backups, they may not work properly."
@@ -913,7 +913,7 @@ if _is_dry_run_enabled; then _disable_notifier; fi
 _check_permissions
 _set_docker_compose_cmd
 
-log_notice "Current directory: '$(pwd)'"
+log_info "Current directory: '$(pwd)'"
 
 show_docker_info
 
