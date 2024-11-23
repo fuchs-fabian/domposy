@@ -748,7 +748,7 @@ function backup_docker_compose_projects {
         _backup_single_docker_compose_project "$backup_dir" "$file"
     done <<<"$docker_compose_files"
 
-    log_info "'${backup_dir}'..."
+    log_info "Backup directory content ('${backup_dir}'):"
     if _is_dry_run_enabled; then log_dry_run "ls -larth $backup_dir"; else log_notice "$(ls -larth "$backup_dir")"; fi
 
     log_debug_delimiter_end 1 "BACKUP"
@@ -813,46 +813,42 @@ function _delete_old_files {
 
     if ! contains_trailing_slash "$dir"; then dir="${dir}/"; fi
 
-    if directory_exists "$dir"; then
-        log_info "Processing directory '$dir' for deletion of old files (keep: $keep_files)..."
+    log_info "Processing directory '$dir' for deletion of old files (keep: $keep_files)..."
 
-        # Get all files sorted by date
-        mapfile -t files < <(ls -dt "$dir"*)
+    # Get all files sorted by date
+    mapfile -t files < <(ls -dt "$dir")
 
-        if is_var_empty "${files[*]}"; then
-            log_warn "No files found in '$dir'. Skipping deletion of old files."
-            return 1
-        fi
+    if is_var_empty "${files[*]}"; then
+        log_warn "No files found in '$dir'. Skipping deletion of old files."
+        return 1
+    fi
 
-        local number_of_files="${#files[@]}"
+    local number_of_files="${#files[@]}"
 
-        log_debug "Files in '$dir' (number: $number_of_files):"
-        for file in "${files[@]}"; do
-            log_debug "$file"
+    log_debug "Files in '$dir' (number: $number_of_files):"
+    for file in "${files[@]}"; do
+        log_debug "$file"
+    done
+
+    if ((${#files[@]} > keep_files)); then
+        local files_to_delete=("${files[@]:keep_files}")
+
+        log_info "Old files to delete (${#files_to_delete[@]} / $number_of_files):"
+        for file_to_delete in "${files_to_delete[@]}"; do
+            log_info "$file_to_delete"
         done
 
-        if ((${#files[@]} > keep_files)); then
-            local files_to_delete=("${files[@]:keep_files}")
+        for file_to_delete in "${files_to_delete[@]}"; do
+            log_info "Deleting old file '$file_to_delete'..."
 
-            log_info "Old files to delete (${#files_to_delete[@]} / $number_of_files):"
-            for file_to_delete in "${files_to_delete[@]}"; do
-                log_info "$file_to_delete"
-            done
+            if _is_dry_run_enabled; then
+                log_dry_run "rm -rf $file_to_delete"
+            else
+                rm -rf "$file_to_delete" || log_error "Failed to delete file: '$file_to_delete'"
+            fi
 
-            for file_to_delete in "${files_to_delete[@]}"; do
-                log_info "Deleting old file '$file_to_delete'..."
-
-                if _is_dry_run_enabled; then
-                    log_dry_run "rm -rf $file_to_delete"
-                else
-                    rm -rf "$file_to_delete" || log_error "Failed to delete file: '$file_to_delete'"
-                fi
-
-                log_notice "Old file deleted: '$file_to_delete'"
-            done
-        fi
-    else
-        log_notice "Directory '$dir' does not exist. Skipping deletion of old files."
+            log_notice "Old file deleted: '$file_to_delete'"
+        done
     fi
 }
 
@@ -883,12 +879,17 @@ function delete_old_backups {
         return 1
     fi
 
-    for sub_dir in "$backup_dir"/*; do
-        _delete_old_files "$sub_dir" "$keep_backups" ||
-            {
-                log_warn "Deletion of old backups in '$sub_dir' failed"
-                return 1
-            }
+    for sub_dir in "$backup_dir"/*/; do
+        if directory_exists "$sub_dir"; then
+            _delete_old_files "$sub_dir" "$keep_backups" ||
+                {
+                    log_warn "Deletion of old backups in '$sub_dir' failed"
+                    return 1
+                }
+        else
+            log_warn "No subdirectories found in '$backup_dir'. Skipping."
+            return 1
+        fi
     done
 }
 
