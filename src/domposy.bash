@@ -499,10 +499,10 @@ function _process_arguments {
             log_debug_var "_process_arguments" "SIMBASHLOG_NOTIFIER"
             ;;
         *)
-            log_error "Invalid argument: '$1'. $message_with_help_information"
-
             # shellcheck disable=SC2034
             ENABLE_SUMMARY_ON_EXIT=false
+
+            log_error "Invalid argument: '$1'. $message_with_help_information"
             ;;
         esac
         shift
