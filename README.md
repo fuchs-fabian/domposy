@@ -101,6 +101,9 @@ Usage: (sudo) domposy
                                   Note: '-a, --action' should be used before this, otherwise it has no effect
                                   Default: '/tmp/domposy/backups/'
 
+  --keep-backups  [keep backups]  Number of backups to keep
+                                  Default: 'all'
+
   --log-dir       [log dir]       Directory for log files
                                   Default: '/tmp/domposy/logs/'
 

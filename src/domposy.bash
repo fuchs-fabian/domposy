@@ -53,7 +53,7 @@
 # ░░                                          ░░
 # ░░░░░░░░░░░░░░░░░░░░░▓▓▓░░░░░░░░░░░░░░░░░░░░░░
 
-declare -rx CONST_DOMPOSY_VERSION="2.0.0"
+declare -rx CONST_DOMPOSY_VERSION="2.1.0"
 declare -rx CONST_DOMPOSY_NAME="domposy"
 
 # ░░░░░░░░░░░░░░░░░░░░░▓▓▓░░░░░░░░░░░░░░░░░░░░░░
@@ -82,6 +82,7 @@ declare -rx CONST_DEFAULT_ACTION="backup"
 declare -rx CONST_DEFAULT_SEARCH_DIR="/home/"
 declare -rx CONST_DEFAULT_EXCLUDE_DIR="tmp"
 declare -rx CONST_DEFAULT_BACKUP_DIR="/tmp/${CONST_DOMPOSY_NAME}/backups/"
+declare -rx CONST_DEFAULT_KEEP_BACKUPS="all"
 
 declare -rx CONST_DEFAULT_LOG_DIR="/tmp/logs/"
 
@@ -92,6 +93,12 @@ declare -rx CONST_DEFAULT_LOG_DIR="/tmp/logs/"
 # ░░                                          ░░
 # ░░                                          ░░
 # ░░░░░░░░░░░░░░░░░░░░░▓▓▓░░░░░░░░░░░░░░░░░░░░░░
+
+function abort {
+    echo "ERROR: $1"
+    echo "Aborting..."
+    exit 1
+}
 
 function find_bin_script {
     local script_name="$1"
@@ -132,18 +139,13 @@ function find_bin_script {
 declare -rx CONST_LOGGER_NAME="simbashlog"
 
 CONST_ORIGINAL_LOGGER_SCRIPT_PATH=$(find_bin_script "$CONST_LOGGER_NAME") ||
-    {
-        echo "Critical: Unable to resolve logger script '$CONST_LOGGER_NAME'. Exiting..."
-        exit 1
-    }
+    abort "Unable to resolve logger script '$CONST_LOGGER_NAME'"
+
 declare -rx CONST_ORIGINAL_LOGGER_SCRIPT_PATH
 
 # shellcheck source=/dev/null
 source "$CONST_ORIGINAL_LOGGER_SCRIPT_PATH" >/dev/null 2>&1 ||
-    {
-        echo "Critical: Unable to source logger script '$CONST_ORIGINAL_LOGGER_SCRIPT_PATH'. Exiting..."
-        exit 1
-    }
+    abort "Unable to source logger script '$CONST_ORIGINAL_LOGGER_SCRIPT_PATH'"
 
 # shellcheck disable=SC2034
 ENABLE_LOG_FILE=true
@@ -187,7 +189,7 @@ function log_dry_run {
     log_notice "Dry run is enabled. Skipping '$1'"
 }
 
-function log_delimiter {
+function log_debug_delimiter {
     local level="$1"
     local text="$2"
     local char="$3"
@@ -210,15 +212,15 @@ function log_delimiter {
         text=$(to_uppercase "$text")
     fi
 
-    log_info "$separator ${text} $separator"
+    log_debug "$separator ${text} $separator"
 }
 
-function log_delimiter_start {
-    log_delimiter "$1" "$2" ">" false
+function log_debug_delimiter_start {
+    log_debug_delimiter "$1" "$2" ">" false
 }
 
-function log_delimiter_end {
-    log_delimiter "$1" "$2" "<" false
+function log_debug_delimiter_end {
+    log_debug_delimiter "$1" "$2" "<" false
 }
 
 # ░░░░░░░░░░░░░░░░░░░░░▓▓▓░░░░░░░░░░░░░░░░░░░░░░
@@ -272,7 +274,7 @@ function check_file_creation {
 # ░░░░░░░░░░░░░░░░░░░░░▓▓▓░░░░░░░░░░░░░░░░░░░░░░
 
 function _check_permissions {
-    log_notice "Current user: '$(whoami)'"
+    log_info "Current user: '$(whoami)'"
     if [[ $(id -u) -ne 0 ]]; then
         if groups "$(whoami)" | grep -q '\bdocker\b'; then
             log_warn "You do not have root rights. If you want to create backups, they may not work properly."
@@ -293,6 +295,7 @@ declare -x _ARG_ACTION="${CONST_DEFAULT_ACTION}"
 declare -x _ARG_SEARCH_DIR="${CONST_DEFAULT_SEARCH_DIR}"
 declare -x _ARG_EXCLUDE_DIR="${CONST_DEFAULT_EXCLUDE_DIR}"
 declare -x _ARG_BACKUP_DIR="${CONST_DEFAULT_BACKUP_DIR}"
+declare -x _ARG_KEEP_BACKUPS="${CONST_DEFAULT_KEEP_BACKUPS}"
 
 function _process_arguments {
     local arg_which_is_processed=""
@@ -361,6 +364,9 @@ function _process_arguments {
             echo "  --backup-dir    [backup dir]    Destination directory for backups"
             echo "                                  $note_for_valid_action_for_backup"
             echo "                                  Default: '$CONST_DEFAULT_BACKUP_DIR'"
+            echo
+            echo "  --keep-backups  [keep backups]  Number of backups to keep"
+            echo "                                  Default: '$CONST_DEFAULT_KEEP_BACKUPS'"
             echo
             echo "  --log-dir       [log dir]       Directory for log files"
             echo "                                  Default: '$CONST_DEFAULT_LOG_DIR'"
@@ -455,6 +461,16 @@ function _process_arguments {
             _ARG_BACKUP_DIR="$1"
             log_debug_var "_process_arguments" "_ARG_BACKUP_DIR"
             ;;
+        --keep-backups)
+            log_debug "'$1' selected"
+            arg_which_is_processed="$1"
+            shift
+            _validate_if_value_is_argument "$1"
+            _log_error_if_value_is_empty "$1"
+
+            _ARG_KEEP_BACKUPS="$1"
+            log_debug_var "_process_arguments" "_ARG_KEEP_BACKUPS"
+            ;;
         --log-dir)
             log_debug "'$1' selected"
             arg_which_is_processed="$1"
@@ -483,6 +499,9 @@ function _process_arguments {
             log_debug_var "_process_arguments" "SIMBASHLOG_NOTIFIER"
             ;;
         *)
+            # shellcheck disable=SC2034
+            ENABLE_SUMMARY_ON_EXIT=false
+
             log_error "Invalid argument: '$1'. $message_with_help_information"
             ;;
         esac
@@ -498,7 +517,7 @@ function _process_arguments {
 
 # Shows Docker information like disk usage, running containers, images etc.
 function show_docker_info {
-    log_delimiter_start 1 "DOCKER INFO"
+    log_debug_delimiter_start 1 "DOCKER INFO"
     log_info "docker system df..."
     log_notice "$(docker system df)"
 
@@ -510,7 +529,7 @@ function show_docker_info {
 
     log_info "docker images..."
     log_notice "$(docker images)"
-    log_delimiter_end 1 "DOCKER INFO"
+    log_debug_delimiter_end 1 "DOCKER INFO"
 }
 
 # Returns the Docker Compose command. So whether 'docker-compose' or 'docker compose'.
@@ -584,7 +603,7 @@ function _create_backup_file_for_single_docker_compose_project {
 
     log_message_part_for_undoing_file_creations="Skipping further backup actions and undoing file creations."
 
-    log_info "TAR..."
+    log_debug "TAR..."
     if _is_dry_run_enabled; then
         log_dry_run "tar -cpf $tar_file_with_backup_dir -C $file_dir ."
     else
@@ -597,7 +616,7 @@ function _create_backup_file_for_single_docker_compose_project {
     fi
     check_file_creation "$tar_file_with_backup_dir"
 
-    log_info "GZIP..."
+    log_debug "GZIP..."
     if _is_dry_run_enabled; then
         log_dry_run "gzip $tar_file_with_backup_dir"
     else
@@ -632,7 +651,18 @@ function _backup_single_docker_compose_project {
     file_simple_dirname=$(basename "$file_dir")
     log_debug_var "_backup_single_docker_compose_project" "file_simple_dirname"
 
-    log_delimiter_start 2 "'${file}'"
+    log_debug_delimiter_start 2 "'${file}'"
+
+    backup_dir="${backup_dir}${file_simple_dirname}/"
+
+    if directory_not_exists "$backup_dir"; then
+        if _is_dry_run_enabled; then
+            log_dry_run "mkdir -p $backup_dir"
+        else
+            mkdir -p "$backup_dir" || log_error "Backup directory '$backup_dir' for file '$file' could not be created"
+            log_notice "Backup directory '$backup_dir' for file '$file' was created"
+        fi
+    fi
 
     cd "${file_dir}" || log_error "Failed to change directory to '${file_dir}'"
     log_notice "Changed directory to '$(pwd)'"
@@ -657,11 +687,12 @@ function _backup_single_docker_compose_project {
 
     if $is_running; then _down; else log_notice "Skip 'down' because it is not running"; fi
 
+    log_info "Creating backup for '${file}'..."
     _create_backup_file_for_single_docker_compose_project "$backup_dir" "$file"
 
     if $is_running; then _up; else log_notice "Skip 'up' because it was not running"; fi
 
-    log_delimiter_end 2 "'${file}'"
+    log_debug_delimiter_end 2 "'${file}'"
 }
 
 function backup_docker_compose_projects {
@@ -683,8 +714,6 @@ function backup_docker_compose_projects {
     function prepare_backup_dir {
         if ! contains_trailing_slash "$backup_dir"; then backup_dir="${backup_dir}/"; fi
 
-        backup_dir="${backup_dir}$(date +"%Y-%m-%d")/"
-
         if directory_not_exists "$backup_dir"; then
             if _is_dry_run_enabled; then
                 log_dry_run "mkdir -p $backup_dir"
@@ -700,7 +729,7 @@ function backup_docker_compose_projects {
         if is_var_not_equal "$backup_dir" "$absolute_backup_dir"; then backup_dir="$absolute_backup_dir"; fi
     }
 
-    log_delimiter_start 1 "BACKUP"
+    log_debug_delimiter_start 1 "BACKUP"
 
     prepare_search_dir
     log_debug_var "backup_docker_compose_projects" "search_dir"
@@ -722,10 +751,10 @@ function backup_docker_compose_projects {
         _backup_single_docker_compose_project "$backup_dir" "$file"
     done <<<"$docker_compose_files"
 
-    log_info "'${backup_dir}'..."
+    log_info "Backup directory content ('${backup_dir}'):"
     if _is_dry_run_enabled; then log_dry_run "ls -larth $backup_dir"; else log_notice "$(ls -larth "$backup_dir")"; fi
 
-    log_delimiter_end 1 "BACKUP"
+    log_debug_delimiter_end 1 "BACKUP"
 }
 
 # ╔═════════════════════╦══════════════════════╗
@@ -737,7 +766,7 @@ function backup_docker_compose_projects {
 # Cleans the Docker environment by removing non-running containers, unused images and volumes.
 function clean_docker_environment {
     function _process_preview {
-        log_delimiter_start 2 "PREVIEW"
+        log_debug_delimiter_start 2 "PREVIEW"
 
         log_info "Listing non-running containers..."
         log_notice "$(docker ps -a --filter status=created --filter status=restarting --filter status=paused --filter status=exited --filter status=dead)"
@@ -748,28 +777,125 @@ function clean_docker_environment {
         log_info "Listing unused volumes..."
         log_notice "$(docker volume ls --filter dangling=true)"
 
-        log_delimiter_end 2 "PREVIEW"
+        log_debug_delimiter_end 2 "PREVIEW"
     }
 
     function _process_remove {
-        log_delimiter_start 2 "REMOVE"
+        log_debug_delimiter_start 2 "REMOVE"
 
-        log_notice "Removing non-running containers..."
+        log_info "Removing non-running containers..."
         if _is_dry_run_enabled; then log_dry_run "docker container prune -f"; else log_notice "$(docker container prune -f)"; fi
 
-        log_notice "Removing unused docker images..."
+        log_info "Removing unused docker images..."
         if _is_dry_run_enabled; then log_dry_run "docker image prune -f"; else log_notice "$(docker image prune -f)"; fi
 
-        log_notice "Removing unused volumes..."
+        log_info "Removing unused volumes..."
         if _is_dry_run_enabled; then log_dry_run "docker volume prune -f"; else log_notice "$(docker volume prune -f)"; fi
 
-        log_delimiter_end 2 "REMOVE"
+        log_debug_delimiter_end 2 "REMOVE"
     }
 
-    log_delimiter_start 1 "CLEAN"
+    log_debug_delimiter_start 1 "CLEAN"
     _process_preview
     _process_remove
-    log_delimiter_end 1 "CLEAN"
+    log_debug_delimiter_end 1 "CLEAN"
+}
+
+# ╔═════════════════════╦══════════════════════╗
+# ║                                            ║
+# ║             DELETE OLD BACKUPS             ║
+# ║                                            ║
+# ╚═════════════════════╩══════════════════════╝
+
+function _delete_old_files {
+    local dir="$1"
+    local keep_files="$2"
+
+    log_debug_var "_delete_old_files" "dir"
+    log_debug_var "_delete_old_files" "keep_files"
+
+    if ! contains_trailing_slash "$dir"; then dir="${dir}/"; fi
+
+    log_info "Processing directory '$dir' for deletion of old files (keep: $keep_files)..."
+
+    # Get all files sorted by date
+    mapfile -t files < <(ls -dt "$dir"*)
+
+    if is_var_empty "${files[*]}"; then
+        log_warn "No files found in '$dir'. Skipping deletion of old files."
+        return 1
+    fi
+
+    local number_of_files="${#files[@]}"
+
+    log_debug "Files in '$dir' (number: $number_of_files):"
+    for file in "${files[@]}"; do
+        log_debug "'$file'"
+    done
+
+    if ((${#files[@]} > keep_files)); then
+        local files_to_delete=("${files[@]:keep_files}")
+        local number_of_files_to_delete="${#files_to_delete[@]}"
+
+        log_info "Old files to delete ($number_of_files_to_delete/$number_of_files):"
+        for file_to_delete in "${files_to_delete[@]}"; do
+            log_info "'$file_to_delete'"
+        done
+
+        for file_to_delete in "${files_to_delete[@]}"; do
+            log_info "Deleting old file '$file_to_delete'..."
+
+            if _is_dry_run_enabled; then
+                log_dry_run "rm -rf $file_to_delete"
+            else
+                rm -rf "$file_to_delete" || log_error "Failed to delete file: '$file_to_delete'"
+            fi
+
+            log_notice "Old file deleted: '$file_to_delete'"
+        done
+    else
+        log_notice "No files to delete. All files are kept. (number of files: $number_of_files | keep: $keep_files)"
+    fi
+}
+
+function delete_old_backups {
+    local backup_dir="$1"
+    local keep_backups="$2"
+
+    log_debug_var "delete_old_backups" "backup_dir"
+    log_debug_var "delete_old_backups" "keep_backups"
+
+    if ! contains_trailing_slash "$backup_dir"; then backup_dir="${backup_dir}/"; fi
+
+    if directory_not_exists "$backup_dir"; then
+        log_warn "Backup directory '$backup_dir' does not exist. Skipping deletion of old backups."
+        return 1
+    fi
+
+    if is_var_equal "$keep_backups" "all"; then
+        log_notice "All backups are kept. No backups will be deleted."
+        return 0
+    fi
+
+    if is_not_numeric "$keep_backups"; then
+        log_warn "Keep backups is not a number. Skipping deletion of old backups."
+        return 1
+    fi
+
+    if is_less "$keep_backups" 1; then
+        log_warn "It is not possible to keep less than 1 backup. You have to delete the backups manually."
+        return 1
+    fi
+
+    for sub_dir in "$backup_dir"*/; do
+        if directory_exists "$sub_dir"; then
+            _delete_old_files "$sub_dir" "$keep_backups" ||
+                log_warn "Deletion of old backups in '$sub_dir' failed"
+        else
+            log_warn "No subdirectories found in '$backup_dir'."
+            return 1
+        fi
+    done
 }
 
 # ░░░░░░░░░░░░░░░░░░░░░▓▓▓░░░░░░░░░░░░░░░░░░░░░░
@@ -787,7 +913,7 @@ if _is_dry_run_enabled; then _disable_notifier; fi
 _check_permissions
 _set_docker_compose_cmd
 
-log_notice "Current directory: '$(pwd)'"
+log_info "Current directory: '$(pwd)'"
 
 show_docker_info
 
@@ -799,6 +925,11 @@ clean)
     clean_docker_environment
     ;;
 esac
+
+log_debug_delimiter_start 1 "DELETE OLD BACKUPS"
+delete_old_backups "$_ARG_BACKUP_DIR" "$_ARG_KEEP_BACKUPS" ||
+    log_warn "Deletion of old backups could not be completed"
+log_debug_delimiter_end 1 "DELETE OLD BACKUPS"
 
 show_docker_info
 

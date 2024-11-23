@@ -108,11 +108,12 @@ function install {
         download_path="$CONST_GLOBAL_DOWNLOAD_PATH"
         bin_path="$CONST_GLOBAL_BIN_PATH"
     else
+        echo
         echo "You are not root."
         echo "The installation will be only available for the current user."
         echo "To install it globally, please run this script as root (sudo)."
 
-        read -r -p "Do you want to continue? [Y/n] " choice
+        read -r -p "Do you want to continue? [y/N] " choice
         if [[ "$choice" =~ ^[Yy]$ ]]; then
             download_path="$CONST_USER_DOWNLOAD_PATH"
             bin_path="$CONST_USER_BIN_PATH"
@@ -129,6 +130,8 @@ function install {
     echo "Bin path: '$bin_path'"
 
     for repo_url in "${CONST_REPO_URLS[@]}"; do
+        echo
+
         local app_name
         app_name=$(get_app_name_from_repo_url "$repo_url")
 
@@ -205,10 +208,12 @@ function uninstall {
     echo "Bin path: '$bin_path'"
 
     for repo_url in "${CONST_REPO_URLS[@]}"; do
+        echo
+
         app_name=$(get_app_name_from_repo_url "$repo_url")
 
         if [ -d "$download_path/$app_name" ] && [ -L "$bin_path/$app_name" ]; then
-            read -r -p "Do you want to uninstall '$app_name'? [Y/n] " choice
+            read -r -p "Do you want to uninstall '$app_name'? [y/N] " choice
             if [[ "$choice" =~ ^[Yy]$ ]]; then
                 echo "Uninstalling '$app_name'..."
 
