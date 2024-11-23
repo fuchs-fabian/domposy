@@ -603,7 +603,7 @@ function _create_backup_file_for_single_docker_compose_project {
 
     log_message_part_for_undoing_file_creations="Skipping further backup actions and undoing file creations."
 
-    log_info "TAR..."
+    log_debug "TAR..."
     if _is_dry_run_enabled; then
         log_dry_run "tar -cpf $tar_file_with_backup_dir -C $file_dir ."
     else
@@ -616,7 +616,7 @@ function _create_backup_file_for_single_docker_compose_project {
     fi
     check_file_creation "$tar_file_with_backup_dir"
 
-    log_info "GZIP..."
+    log_debug "GZIP..."
     if _is_dry_run_enabled; then
         log_dry_run "gzip $tar_file_with_backup_dir"
     else
@@ -783,13 +783,13 @@ function clean_docker_environment {
     function _process_remove {
         log_debug_delimiter_start 2 "REMOVE"
 
-        log_notice "Removing non-running containers..."
+        log_info "Removing non-running containers..."
         if _is_dry_run_enabled; then log_dry_run "docker container prune -f"; else log_notice "$(docker container prune -f)"; fi
 
-        log_notice "Removing unused docker images..."
+        log_info "Removing unused docker images..."
         if _is_dry_run_enabled; then log_dry_run "docker image prune -f"; else log_notice "$(docker image prune -f)"; fi
 
-        log_notice "Removing unused volumes..."
+        log_info "Removing unused volumes..."
         if _is_dry_run_enabled; then log_dry_run "docker volume prune -f"; else log_notice "$(docker volume prune -f)"; fi
 
         log_debug_delimiter_end 2 "REMOVE"
