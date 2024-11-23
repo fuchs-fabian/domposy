@@ -811,11 +811,13 @@ function _delete_old_files {
     log_debug_var "_delete_old_files" "dir"
     log_debug_var "_delete_old_files" "keep_files"
 
+    if ! contains_trailing_slash "$dir"; then dir="${dir}/"; fi
+
     if directory_exists "$dir"; then
         log_info "Processing directory '$dir' for deletion of old files (keep: $keep_files)..."
 
         # Get all files sorted by date
-        mapfile -t files < <(ls -dt "$dir"/*)
+        mapfile -t files < <(ls -dt "$dir"*)
 
         if is_var_empty "${files[*]}"; then
             log_warn "No files found in '$dir'. Skipping deletion of old files."
@@ -861,8 +863,6 @@ function delete_old_backups {
     log_debug_var "delete_old_backups" "backup_dir"
     log_debug_var "delete_old_backups" "keep_backups"
 
-    log_debug_delimiter_start 1 "DELETE OLD BACKUPS"
-
     if directory_not_exists "$backup_dir"; then
         log_warn "Backup directory '$backup_dir' does not exist. Skipping deletion of old backups."
         return 1
@@ -890,8 +890,6 @@ function delete_old_backups {
                 return 1
             }
     done
-
-    log_debug_delimiter_end 1 "DELETE OLD BACKUPS"
 }
 
 # ░░░░░░░░░░░░░░░░░░░░░▓▓▓░░░░░░░░░░░░░░░░░░░░░░
@@ -922,8 +920,10 @@ clean)
     ;;
 esac
 
+log_debug_delimiter_start 1 "DELETE OLD BACKUPS"
 delete_old_backups "$_ARG_BACKUP_DIR" "$_ARG_KEEP_BACKUPS" ||
     log_warn "Deletion of old backups failed"
+log_debug_delimiter_end 1 "DELETE OLD BACKUPS"
 
 show_docker_info
 
