@@ -896,7 +896,6 @@ function delete_old_backups {
                 }
         else
             log_warn "No subdirectories found in '$backup_dir'."
-            return 1
         fi
     done
 }
