@@ -827,7 +827,7 @@ function _delete_old_files {
 
     log_debug "Files in '$dir' (number: $number_of_files):"
     for file in "${files[@]}"; do
-        log_debug "$file"
+        log_debug "- '$file'"
     done
 
     if ((${#files[@]} > keep_files)); then
@@ -849,6 +849,8 @@ function _delete_old_files {
 
             log_notice "Old file deleted: '$file_to_delete'"
         done
+    else
+        log_notice "No files to delete. All files are kept. (number of files: $number_of_files | keep: $keep_files)"
     fi
 }
 
