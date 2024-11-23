@@ -82,6 +82,7 @@ declare -rx CONST_DEFAULT_ACTION="backup"
 declare -rx CONST_DEFAULT_SEARCH_DIR="/home/"
 declare -rx CONST_DEFAULT_EXCLUDE_DIR="tmp"
 declare -rx CONST_DEFAULT_BACKUP_DIR="/tmp/${CONST_DOMPOSY_NAME}/backups/"
+declare -rx CONST_DEFAULT_KEEP_BACKUPS="all"
 
 declare -rx CONST_DEFAULT_LOG_DIR="/tmp/logs/"
 
@@ -294,6 +295,7 @@ declare -x _ARG_ACTION="${CONST_DEFAULT_ACTION}"
 declare -x _ARG_SEARCH_DIR="${CONST_DEFAULT_SEARCH_DIR}"
 declare -x _ARG_EXCLUDE_DIR="${CONST_DEFAULT_EXCLUDE_DIR}"
 declare -x _ARG_BACKUP_DIR="${CONST_DEFAULT_BACKUP_DIR}"
+declare -x _ARG_KEEP_BACKUPS="${CONST_DEFAULT_KEEP_BACKUPS}"
 
 function _process_arguments {
     local arg_which_is_processed=""
@@ -362,6 +364,9 @@ function _process_arguments {
             echo "  --backup-dir    [backup dir]    Destination directory for backups"
             echo "                                  $note_for_valid_action_for_backup"
             echo "                                  Default: '$CONST_DEFAULT_BACKUP_DIR'"
+            echo
+            echo "  --keep-backups  [keep backups]  Number of backups to keep"
+            echo "                                  Default: '$CONST_DEFAULT_KEEP_BACKUPS'"
             echo
             echo "  --log-dir       [log dir]       Directory for log files"
             echo "                                  Default: '$CONST_DEFAULT_LOG_DIR'"
@@ -455,6 +460,16 @@ function _process_arguments {
 
             _ARG_BACKUP_DIR="$1"
             log_debug_var "_process_arguments" "_ARG_BACKUP_DIR"
+            ;;
+        --keep-backups)
+            log_debug "'$1' selected"
+            arg_which_is_processed="$1"
+            shift
+            _validate_if_value_is_argument "$1"
+            _log_error_if_value_is_empty "$1"
+
+            _ARG_KEEP_BACKUPS="$1"
+            log_debug_var "_process_arguments" "_ARG_KEEP_BACKUPS"
             ;;
         --log-dir)
             log_debug "'$1' selected"
@@ -635,6 +650,17 @@ function _backup_single_docker_compose_project {
 
     log_debug_delimiter_start 2 "'${file}'"
 
+    backup_dir="${backup_dir}${file_simple_dirname}/"
+
+    if directory_not_exists "$backup_dir"; then
+        if _is_dry_run_enabled; then
+            log_dry_run "mkdir -p $backup_dir"
+        else
+            mkdir -p "$backup_dir" || log_error "Backup directory '$backup_dir' for file '$file' could not be created"
+            log_notice "Backup directory '$backup_dir' for file '$file' was created"
+        fi
+    fi
+
     cd "${file_dir}" || log_error "Failed to change directory to '${file_dir}'"
     log_notice "Changed directory to '$(pwd)'"
 
@@ -685,8 +711,6 @@ function backup_docker_compose_projects {
     function prepare_backup_dir {
         if ! contains_trailing_slash "$backup_dir"; then backup_dir="${backup_dir}/"; fi
 
-        backup_dir="${backup_dir}$(date +"%Y-%m-%d")/"
-
         if directory_not_exists "$backup_dir"; then
             if _is_dry_run_enabled; then
                 log_dry_run "mkdir -p $backup_dir"
@@ -724,7 +748,7 @@ function backup_docker_compose_projects {
         _backup_single_docker_compose_project "$backup_dir" "$file"
     done <<<"$docker_compose_files"
 
-    log_info "'${backup_dir}'..."
+    log_info "Backup directory content ('${backup_dir}'):"
     if _is_dry_run_enabled; then log_dry_run "ls -larth $backup_dir"; else log_notice "$(ls -larth "$backup_dir")"; fi
 
     log_debug_delimiter_end 1 "BACKUP"
@@ -774,6 +798,106 @@ function clean_docker_environment {
     log_debug_delimiter_end 1 "CLEAN"
 }
 
+# ╔═════════════════════╦══════════════════════╗
+# ║                                            ║
+# ║             DELETE OLD BACKUPS             ║
+# ║                                            ║
+# ╚═════════════════════╩══════════════════════╝
+
+function _delete_old_files {
+    local dir="$1"
+    local keep_files="$2"
+
+    log_debug_var "_delete_old_files" "dir"
+    log_debug_var "_delete_old_files" "keep_files"
+
+    if ! contains_trailing_slash "$dir"; then dir="${dir}/"; fi
+
+    log_info "Processing directory '$dir' for deletion of old files (keep: $keep_files)..."
+
+    # Get all files sorted by date
+    mapfile -t files < <(ls -dt "$dir"*)
+
+    if is_var_empty "${files[*]}"; then
+        log_warn "No files found in '$dir'. Skipping deletion of old files."
+        return 1
+    fi
+
+    local number_of_files="${#files[@]}"
+
+    log_debug "Files in '$dir' (number: $number_of_files):"
+    for file in "${files[@]}"; do
+        log_debug "'$file'"
+    done
+
+    if ((${#files[@]} > keep_files)); then
+        local files_to_delete=("${files[@]:keep_files}")
+        local number_of_files_to_delete="${#files_to_delete[@]}"
+
+        log_info "Old files to delete ($number_of_files_to_delete/$number_of_files):"
+        for file_to_delete in "${files_to_delete[@]}"; do
+            log_info "'$file_to_delete'"
+        done
+
+        for file_to_delete in "${files_to_delete[@]}"; do
+            log_info "Deleting old file '$file_to_delete'..."
+
+            if _is_dry_run_enabled; then
+                log_dry_run "rm -rf $file_to_delete"
+            else
+                rm -rf "$file_to_delete" || log_error "Failed to delete file: '$file_to_delete'"
+            fi
+
+            log_notice "Old file deleted: '$file_to_delete'"
+        done
+    else
+        log_notice "No files to delete. All files are kept. (number of files: $number_of_files | keep: $keep_files)"
+    fi
+}
+
+function delete_old_backups {
+    local backup_dir="$1"
+    local keep_backups="$2"
+
+    log_debug_var "delete_old_backups" "backup_dir"
+    log_debug_var "delete_old_backups" "keep_backups"
+
+    if ! contains_trailing_slash "$backup_dir"; then backup_dir="${backup_dir}/"; fi
+
+    if directory_not_exists "$backup_dir"; then
+        log_warn "Backup directory '$backup_dir' does not exist. Skipping deletion of old backups."
+        return 1
+    fi
+
+    if is_var_equal "$keep_backups" "all"; then
+        log_notice "All backups are kept. No backups will be deleted."
+        return 0
+    fi
+
+    if is_not_numeric "$keep_backups"; then
+        log_warn "Keep backups is not a number. Skipping deletion of old backups."
+        return 1
+    fi
+
+    if is_less "$keep_backups" 1; then
+        log_warn "It is not possible to keep less than 1 backup. You have to delete the backups manually."
+        return 1
+    fi
+
+    for sub_dir in "$backup_dir"*/; do
+        if directory_exists "$sub_dir"; then
+            _delete_old_files "$sub_dir" "$keep_backups" ||
+                {
+                    log_warn "Deletion of old backups in '$sub_dir' failed"
+                    return 1
+                }
+        else
+            log_warn "No subdirectories found in '$backup_dir'."
+            return 1
+        fi
+    done
+}
+
 # ░░░░░░░░░░░░░░░░░░░░░▓▓▓░░░░░░░░░░░░░░░░░░░░░░
 # ░░                                          ░░
 # ░░                                          ░░
@@ -801,6 +925,11 @@ clean)
     clean_docker_environment
     ;;
 esac
+
+log_debug_delimiter_start 1 "DELETE OLD BACKUPS"
+delete_old_backups "$_ARG_BACKUP_DIR" "$_ARG_KEEP_BACKUPS" ||
+    log_warn "Deletion of old backups could not be completed"
+log_debug_delimiter_end 1 "DELETE OLD BACKUPS"
 
 show_docker_info
 
