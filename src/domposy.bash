@@ -890,12 +890,10 @@ function delete_old_backups {
     for sub_dir in "$backup_dir"*/; do
         if directory_exists "$sub_dir"; then
             _delete_old_files "$sub_dir" "$keep_backups" ||
-                {
-                    log_warn "Deletion of old backups in '$sub_dir' failed"
-                    return 1
-                }
+                log_warn "Deletion of old backups in '$sub_dir' failed"
         else
             log_warn "No subdirectories found in '$backup_dir'."
+            return 1
         fi
     done
 }
