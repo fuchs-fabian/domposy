@@ -832,10 +832,11 @@ function _delete_old_files {
 
     if ((${#files[@]} > keep_files)); then
         local files_to_delete=("${files[@]:keep_files}")
+        local number_of_files_to_delete="${#files_to_delete[@]}"
 
-        log_info "Old files to delete (${#files_to_delete[@]} / $number_of_files):"
+        log_info "Old files to delete ($number_of_files_to_delete/$number_of_files):"
         for file_to_delete in "${files_to_delete[@]}"; do
-            log_info "$file_to_delete"
+            log_info "'$file_to_delete'"
         done
 
         for file_to_delete in "${files_to_delete[@]}"; do
