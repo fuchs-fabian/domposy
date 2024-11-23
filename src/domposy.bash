@@ -887,7 +887,7 @@ function delete_old_backups {
                     return 1
                 }
         else
-            log_warn "No subdirectories found in '$backup_dir'. Skipping."
+            log_warn "No subdirectories found in '$backup_dir'."
             return 1
         fi
     done
@@ -923,7 +923,7 @@ esac
 
 log_debug_delimiter_start 1 "DELETE OLD BACKUPS"
 delete_old_backups "$_ARG_BACKUP_DIR" "$_ARG_KEEP_BACKUPS" ||
-    log_warn "Deletion of old backups failed"
+    log_warn "Deletion of old backups could not be completed"
 log_debug_delimiter_end 1 "DELETE OLD BACKUPS"
 
 show_docker_info
