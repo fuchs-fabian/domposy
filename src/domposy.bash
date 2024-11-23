@@ -862,6 +862,8 @@ function delete_old_backups {
     log_debug_var "delete_old_backups" "backup_dir"
     log_debug_var "delete_old_backups" "keep_backups"
 
+    if ! contains_trailing_slash "$backup_dir"; then backup_dir="${backup_dir}/"; fi
+
     if directory_not_exists "$backup_dir"; then
         log_warn "Backup directory '$backup_dir' does not exist. Skipping deletion of old backups."
         return 1
@@ -882,7 +884,7 @@ function delete_old_backups {
         return 1
     fi
 
-    for sub_dir in "$backup_dir"/*/; do
+    for sub_dir in "$backup_dir"*/; do
         if directory_exists "$sub_dir"; then
             _delete_old_files "$sub_dir" "$keep_backups" ||
                 {
